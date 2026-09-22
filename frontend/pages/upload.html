@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -376,26 +377,84 @@ form.addEventListener("submit",function(e){
     document.getElementById("procStep3").innerHTML='<div class="spinner spinner-sm"></div>Generating report';
   }, 900);
 
-  setTimeout(function(){
-    var isCancer=Math.random()>0.55;
-    var probability=isCancer?(0.60+Math.random()*0.38):(0.03+Math.random()*0.30);
-    var patientId=patientMode.value==="new"?("PAT-"+String(patientCounter++).padStart(4,"0")):(patientSelect.value||"PAT-0001");
-    lastResult={
-      id:"PRED-"+(1092+Math.floor(Math.random()*100)),
-      patient:patientId,
-      clinician:currentUser.full_name || currentUser.email,
-      result:isCancer?"cancer_detected":"healthy",
-      probability:parseFloat(probability.toFixed(3)),
-      referral:isCancer&&probability>0.70,
-      location:location,
-      processing_ms:1800+Math.floor(Math.random()*400),
-      confidence:parseFloat((0.80+Math.random()*0.18).toFixed(2)),
-      time:new Date().toISOString(),
-      verified:false
-    };
+  // ── Fetch a real patient UUID, then POST the image ─────────────────────
+  fetch(API_BASE + "/patients?limit=1", {
+    headers: { "Authorization": "Bearer " + token }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(patientResp) {
+    var realPatientId = null;
+    if (patientResp && patientResp.success && patientResp.patients && patientResp.patients.length > 0) {
+      realPatientId = patientResp.patients[0].patient_id;
+    }
+
+    if (!realPatientId) {
+      processingPanel.classList.remove("visible");
+      emptyPanel.style.display = "";
+      emptyPanel.querySelector(".empty-panel-title").textContent = "No patients found";
+      emptyPanel.querySelector(".empty-panel-sub").textContent = "Please register a patient first before uploading an image.";
+      submitBtn.disabled = false;
+      submitBtnText.textContent = "Run analysis";
+      return;
+    }
+
+    var formData = new FormData();
+    formData.append("image", selectedFile);
+    formData.append("location", location);
+    formData.append("clinician_notes", "");
+    formData.append("patient_id", realPatientId);
+
+    return fetch(API_BASE + "/predictions", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token },
+      body: formData
+    })
+    .then(function(r) { return r.json().then(function(d){ return { status: r.status, data: d }; }); })
+    .then(function(result) {
+      processingPanel.classList.remove("visible");
+
+      if (result.status === 401) {
+        localStorage.removeItem("dermis_token");
+        localStorage.removeItem("dermis_user");
+        window.location.href = "index.html";
+        return;
+      }
+
+      if (result.status === 201 && result.data.success) {
+        var pred = result.data.prediction;
+        lastResult = {
+          id:            pred.prediction_id,
+          patient:       realPatientId.slice(0, 8),
+          clinician:     currentUser.full_name || currentUser.email,
+          result:        pred.prediction,
+          probability:   pred.cancer_probability,
+          referral:      pred.referral_recommended,
+          location:      location,
+          processing_ms: pred.processing_time_ms,
+          confidence:    pred.confidence,
+          time:          pred.detection_timestamp,
+          verified:      false
+        };
+        renderResult(lastResult);
+      } else {
+        emptyPanel.style.display = "";
+        emptyPanel.querySelector(".empty-panel-title").textContent = "Analysis failed";
+        emptyPanel.querySelector(".empty-panel-sub").textContent =
+          (result.data && result.data.message) ? result.data.message : "Please try again.";
+        submitBtn.disabled = false;
+        submitBtnText.textContent = "Run analysis";
+      }
+    });
+  })
+  .catch(function(err) {
     processingPanel.classList.remove("visible");
-    renderResult(lastResult);
-  }, 2000);
+    emptyPanel.style.display = "";
+    emptyPanel.querySelector(".empty-panel-title").textContent = "Cannot reach the server";
+    emptyPanel.querySelector(".empty-panel-sub").textContent = "Is the backend running?";
+    submitBtn.disabled = false;
+    submitBtnText.textContent = "Run analysis";
+    console.error(err);
+  });
 });
 
 function renderResult(r){

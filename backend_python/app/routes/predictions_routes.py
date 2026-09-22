@@ -6,12 +6,14 @@ Prediction CRUD endpoints for DermisAI.
 Endpoints
 ---------
 POST   /api/predictions
-    Dermatologist only.  Creates a stub Image row (no real file),
-    then creates a Prediction row with AI-stubbed results.
+    Dermatologist or patient.  Accepts a multipart image upload,
+    runs the real TFLite models (skin detector → cancer detector),
+    saves the image to uploads/, and records the prediction.
 
 GET    /api/predictions
     Dermatologist → own predictions only.
     Admin → all predictions.
+    Patient → own predictions only.
     Supports ``limit`` and ``offset`` query params.
 
 GET    /api/predictions/<prediction_id>
@@ -21,7 +23,7 @@ PATCH  /api/predictions/<prediction_id>
     Dermatologist only.  Records clinician agreement.
 """
 
-import random
+import os
 import uuid
 from datetime import datetime
 
@@ -32,8 +34,21 @@ from app.extensions import db
 from app.models.image import Image
 from app.models.patient import Patient
 from app.models.prediction import Prediction
+from app.services import model_service
 
 predictions_bp = Blueprint("predictions", __name__)
+
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+# __file__ = backend_python/app/routes/predictions_routes.py
+#   dirname → .../app/routes
+#   dirname → .../app
+#   dirname → .../backend_python
+BASE_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+UPLOAD_DIR  = os.path.join(BASE_DIR, "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -60,29 +75,28 @@ def _enrich(pred: Prediction) -> dict:
 @predictions_bp.post("")
 @jwt_required()
 def create_prediction():
-    """Create a new AI-stubbed prediction.
+    """Create a new AI prediction from a real uploaded image.
 
     Roles
     -----
     dermatologist
-        patient_id required in body.
+        patient_id required in the form.
     patient
         patient_id auto-resolved from the caller's linked Patient row.
 
-    Request JSON
-    ------------
-    {
-        "patient_id":      "uuid",   required for dermatologist, ignored for patient
-        "location":        "...",    required  (stored in clinician_notes)
-        "clinician_notes": "..."     optional
-    }
+    Request (multipart/form-data)
+    -----------------------------
+    image             : file     (required)
+    patient_id        : uuid     (required for dermatologist)
+    location          : string   (required)
+    clinician_notes   : string   (optional)
 
     Responses
     ---------
     201  Prediction created.
-    400  Validation error (missing fields, patient not found).
+    400  Validation error, invalid file, or not-a-skin-image.
     403  Wrong role.
-    500  Unexpected error.
+    500  Model or database failure.
     """
     claims = get_jwt()
     role   = claims.get("role")
@@ -93,19 +107,16 @@ def create_prediction():
     current_user_id = get_jwt_identity()
     hospital_id     = claims.get("hospital_id")
 
-    body = request.get_json(silent=True)
-    if not body:
-        return jsonify({"success": False, "message": "Request body must be valid JSON."}), 400
-
-    location    = body.get("location", "").strip()
-    extra_notes = body.get("clinician_notes", "").strip()
+    # ── Read form fields (multipart) ────────────────────────────────────────
+    location    = (request.form.get("location") or "").strip()
+    extra_notes = (request.form.get("clinician_notes") or "").strip()
 
     if not location:
         return jsonify({"success": False, "message": "location is required."}), 400
 
     # ── Resolve patient_id based on role ─────────────────────────────────────
     if role == "dermatologist":
-        patient_id_raw = body.get("patient_id", "").strip()
+        patient_id_raw = (request.form.get("patient_id") or "").strip()
         if not patient_id_raw:
             return jsonify({"success": False, "message": "patient_id is required."}), 400
         try:
@@ -115,7 +126,6 @@ def create_prediction():
         patient = db.session.get(Patient, patient_uuid)
         if patient is None:
             return jsonify({"success": False, "message": "Patient not found."}), 400
-
     else:  # role == "patient"
         patient = Patient.query.filter_by(linked_user_id=current_user_id).first()
         if patient is None:
@@ -125,32 +135,69 @@ def create_prediction():
             }), 400
         patient_uuid = patient.patient_id
 
-    # ── Stub AI inference ─────────────────────────────────────────────────────
-    is_cancer   = random.random() > 0.55
-    probability = random.uniform(0.60, 0.98) if is_cancer else random.uniform(0.02, 0.30)
-    confidence  = random.uniform(0.80, 0.98)
-    result      = "cancer_detected" if is_cancer else "healthy"
-    referral    = is_cancer and probability > 0.70
-    proc_ms     = random.randint(1800, 2200)
+    # ── Validate uploaded image ──────────────────────────────────────────────
+    if "image" not in request.files:
+        return jsonify({"success": False, "message": "No image uploaded."}), 400
 
-    # Compose clinician_notes: prepend location so frontend can surface it
+    uploaded_file = request.files["image"]
+    if uploaded_file.filename == "":
+        return jsonify({"success": False, "message": "No file selected."}), 400
+
+    ext = os.path.splitext(uploaded_file.filename)[1].lower()
+    if ext not in ALLOWED_EXTS:
+        return jsonify({
+            "success": False,
+            "message": "Invalid file type. Use JPG, JPEG, PNG or WEBP.",
+        }), 400
+
+    # ── Save file to uploads/ ────────────────────────────────────────────────
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    file_path   = os.path.join(UPLOAD_DIR, unique_name)
+    uploaded_file.save(file_path)
+
+    # ── Run real model inference ─────────────────────────────────────────────
+    inference = model_service.predict(file_path)
+
+    if not inference.get("success"):
+        return jsonify({
+            "success": False,
+            "message": inference.get("message", "Model inference failed."),
+        }), 500
+
+    # If the model doesn't detect skin, reject the upload
+    if not inference.get("is_skin"):
+        return jsonify({
+            "success": False,
+            "message": "The uploaded image does not appear to be skin. Please upload a skin photo.",
+            "skin_confidence": inference.get("skin_confidence"),
+        }), 400
+
+    # ── Extract results ──────────────────────────────────────────────────────
+    is_cancer   = inference["prediction"] == "cancer_detected"
+    probability = inference["cancer_probability"]
+    confidence  = inference["confidence"]
+    result      = inference["prediction"]
+    referral    = inference["referral_recommended"]
+    proc_ms     = inference["processing_time_ms"]
+
+    # Compose clinician_notes with location prefix
     notes_parts = ["Location: " + location]
     if extra_notes:
         notes_parts.append("Notes: " + extra_notes)
     composed_notes = " | ".join(notes_parts)
 
     try:
-        # ── Insert stub Image row (required FK on predictions) ─────────────
+        # ── Insert Image row with real file path ────────────────────────────
         image = Image(
-            file_path       = "uploads/demo/" + str(uuid.uuid4()) + ".jpg",
+            file_path       = f"uploads/{unique_name}",
             file_hash       = uuid.uuid4().hex,
-            file_size_bytes = 0,
+            file_size_bytes = os.path.getsize(file_path),
             patient_id      = patient_uuid,
             hospital_id     = hospital_id,
             uploaded_by     = current_user_id,
         )
         db.session.add(image)
-        db.session.flush()   # get image.image_id without committing yet
+        db.session.flush()   # get image.image_id without committing
 
         # ── Insert Prediction row ──────────────────────────────────────────
         pred = Prediction(
@@ -174,7 +221,6 @@ def create_prediction():
         else:
             patient.total_predictions += 1
 
-        # Update last_seen
         patient.last_seen = datetime.utcnow()
         if patient.first_seen is None:
             patient.first_seen = datetime.utcnow()
@@ -225,20 +271,15 @@ def list_predictions():
         if role == "dermatologist":
             query = query.where(Prediction.user_id == current_user_id)
         elif role == "patient":
-            # Patients see predictions linked to their own patient record
             patient = Patient.query.filter_by(linked_user_id=current_user_id).first()
             if patient is None:
                 return jsonify({"success": True, "predictions": [], "total": 0}), 200
             query = query.where(Prediction.patient_id == patient.patient_id)
 
-        count_query = db.select(db.func.count()).select_from(
-            query.subquery()
-        )
+        count_query = db.select(db.func.count()).select_from(query.subquery())
         total = db.session.execute(count_query).scalar() or 0
 
-        rows = db.session.execute(
-            query.limit(limit).offset(offset)
-        ).scalars().all()
+        rows = db.session.execute(query.limit(limit).offset(offset)).scalars().all()
 
         return jsonify({
             "success":     True,
@@ -261,7 +302,7 @@ def list_predictions():
 def get_prediction(prediction_id: str):
     """Retrieve a single prediction by ID.
 
-    Accessible to the owning clinician or any admin.
+    Accessible to the owning clinician, the owning patient, or any admin.
 
     Responses: 200 | 403 | 404 | 500
     """
@@ -278,9 +319,9 @@ def get_prediction(prediction_id: str):
     if pred is None:
         return jsonify({"success": False, "message": "Prediction not found."}), 404
 
-    # Ownership check: admin sees all, doctor sees own, patient sees own via patient record
+    # Ownership check
     if role == "admin":
-        pass  # unrestricted
+        pass
     elif role == "dermatologist":
         if str(pred.user_id) != current_user_id:
             return _forbidden()
