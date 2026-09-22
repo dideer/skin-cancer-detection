@@ -5,7 +5,7 @@ gunicorn==23.0.0
 # ── Database ────────────────────────────────────────────────
 Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.0.7
-psycopg==3.1.15
+psycopg2-binary==2.9.10
 
 # ── Auth & Security ─────────────────────────────────────────
 Flask-Bcrypt==1.0.1
