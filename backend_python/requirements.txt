@@ -22,6 +22,6 @@ marshmallow==3.21.3
 email-validator==2.1.1
 
 # ── ML Inference ────────────────────────────────────────────
-tensorflow==2.18.0
+tensorflow-lite-runtime
 gdown==5.2.0
 Pillow==11.0.0
