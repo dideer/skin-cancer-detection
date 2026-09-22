@@ -1,11 +1,11 @@
-
 # ── Core framework ──────────────────────────────────────────
 Flask==3.0.3
+gunicorn==23.0.0
 
 # ── Database ────────────────────────────────────────────────
 Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.0.7
-psycopg2-binary==2.9.10
+psycopg==3.1.15  # ⬅️ CHANGED (was psycopg2-binary)
 
 # ── Auth & Security ─────────────────────────────────────────
 Flask-Bcrypt==1.0.1
@@ -21,12 +21,7 @@ python-dotenv==1.0.1
 marshmallow==3.21.3
 email-validator==2.1.1
 
-
-
-
-
 # ── ML Inference ────────────────────────────────────────────
 tensorflow==2.20.0
 gdown==5.2.0
 Pillow==11.0.0
-
