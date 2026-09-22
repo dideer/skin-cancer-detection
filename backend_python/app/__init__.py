@@ -54,18 +54,9 @@ def create_app(env: str | None = None) -> Flask:
     )
 
     # ── 3. Register blueprints ────────────────────────────────────────────
-    # Blueprints are registered here as they are created.
-    # Example:
-    #   from app.routes.auth import auth_bp
-    #   app.register_blueprint(auth_bp, url_prefix="/api/auth")
     _register_blueprints(app)
 
     # ── 4. Frontend static file routes ───────────────────────────────────────
-    # Compute paths once at startup so every request is fast.
-    # __file__ = …/backend_python/app/__init__.py
-    #   → dirname → …/backend_python/app
-    #   → dirname → …/backend_python
-    #   → dirname → …/skin-concer-detection  (project root)
     _project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     _pages_dir    = os.path.join(_project_root, "frontend", "pages")
     _css_dir      = os.path.join(_project_root, "frontend", "css")
@@ -91,12 +82,40 @@ def create_app(env: str | None = None) -> Flask:
     # ── 5. Built-in API routes ────────────────────────────────────────────
     @app.get("/api/health")
     def health_check():
-        """
-        Health-check endpoint.
-        Returns 200 {"status": "ok"} when the service is running.
-        Useful for load-balancer / container probes.
-        """
+        """Health-check endpoint."""
         return jsonify({"status": "ok"}), 200
+
+    # ── 5b. DEBUG endpoint — database diagnostics (temporary) ────────────
+    @app.get("/api/debug-db")
+    def debug_db():
+        """Diagnostic endpoint: shows DB connection status + tables."""
+        from app.extensions import db
+        from sqlalchemy import text
+        try:
+            with db.engine.connect() as conn:
+                current_db   = conn.execute(text("SELECT current_database()")).scalar()
+                current_user = conn.execute(text("SELECT current_user")).scalar()
+                pg_version   = conn.execute(text("SELECT version()")).scalar()
+                tables = conn.execute(text(
+                    "SELECT tablename FROM pg_tables "
+                    "WHERE schemaname='public' ORDER BY tablename"
+                )).fetchall()
+            return jsonify({
+                "status":       "ok",
+                "database":     current_db,
+                "db_user":      current_user,
+                "pg_version":   pg_version.split(",")[0],
+                "tables":       [t[0] for t in tables],
+                "table_count":  len(tables),
+                "database_url": app.config["SQLALCHEMY_DATABASE_URI"][:40] + "...",
+            })
+        except Exception as e:
+            return jsonify({
+                "status":        "error",
+                "error_type":    type(e).__name__,
+                "error_message": str(e),
+                "database_url":  app.config["SQLALCHEMY_DATABASE_URI"][:40] + "...",
+            }), 500
 
     # ── 6. JSON error handlers ───────────────────────────────────────────
     @app.errorhandler(404)
@@ -111,13 +130,10 @@ def create_app(env: str | None = None) -> Flask:
     def internal_error(e):
         return jsonify({"error": "internal_server_error", "message": "An unexpected error occurred"}), 500
 
-    # ── 6. Shell context ──────────────────────────────────────────────────
+    # ── 7. Shell context ──────────────────────────────────────────────────
     @app.shell_context_processor
     def make_shell_context():
-        """
-        Inject db and common models into `flask shell` automatically.
-        Add model imports here once models are created.
-        """
+        """Inject db and common models into `flask shell` automatically."""
         return {"db": db}
 
     return app
@@ -150,16 +166,3 @@ def _register_blueprints(app: Flask) -> None:
 
     from app.routes.appointments_routes import appointments_bp
     app.register_blueprint(appointments_bp, url_prefix="/api/appointments")
-
-    # Uncomment as blueprints are created:
-    # from app.routes.patients import patients_bp
-    # from app.routes.predictions import predictions_bp
-    # from app.routes.users import users_bp
-    # from app.routes.hospitals import hospitals_bp
-    # from app.routes.audit import audit_bp
-    #
-    # app.register_blueprint(patients_bp,    url_prefix="/api/patients")
-    # app.register_blueprint(predictions_bp, url_prefix="/api/predictions")
-    # app.register_blueprint(users_bp,       url_prefix="/api/users")
-    # app.register_blueprint(hospitals_bp,   url_prefix="/api/hospitals")
-    # app.register_blueprint(audit_bp,       url_prefix="/api/audit")
