@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — DermisAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .login-form-footer { margin-top: var(--space-5); text-align: center; font-size: var(--text-xs); color: var(--color-text-muted); }
+    .password-toggle { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-text-muted); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; }
+    .password-toggle:hover { color: var(--color-text-primary); }
+    .password-toggle svg { width: 16px; height: 16px; pointer-events: none; }
+    .password-field { position: relative; }
+    .password-field .form-control { padding-right: 42px; }
+    .demo-credentials { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-6); font-size: var(--text-xs); }
+    .demo-credentials-header { font-weight: var(--weight-semibold); color: var(--color-text-secondary); margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+    .demo-credentials-header svg { width: 13px; height: 13px; color: var(--color-info); }
+    .demo-cred-row { display: flex; align-items: center; justify-content: space-between; color: var(--color-text-muted); margin-top: var(--space-1); }
+    .demo-cred-row .btn-use { font-size: 10px; padding: 1px 8px; height: 22px; }
+    .login-error { display: none; margin-bottom: var(--space-4); }
+    .login-error.visible { display: flex; }
+    .login-btn-text { transition: opacity var(--transition-fast); }
+    .login-btn-spinner { display: none; }
+    .btn-loading .login-btn-text { display: none; }
+    .btn-loading .login-btn-spinner { display: flex; align-items: center; gap: var(--space-2); }
+    .login-visual-label { font-size: var(--text-xs); color: rgba(255,255,255,0.40); letter-spacing: 0.06em; margin-bottom: var(--space-6); }
+    .login-visual-icon { width: 72px; height: 72px; border-radius: var(--radius-xl); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-6); }
+    .login-visual-icon svg { width: 36px; height: 36px; color: rgba(255,255,255,0.7); }
+    .login-visual-body { font-size: var(--text-sm); color: rgba(255,255,255,0.45); line-height: 1.7; max-width: 340px; margin: 0 auto var(--space-8); }
+  </style>
+</head>
+<body>
+<main class="login-layout">
+  <section class="login-panel" aria-labelledby="loginHeading">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+      </div>
+      <div>
+        <div class="login-logo-name">DermisAI</div>
+        <div class="login-logo-sub">Clinical Detection System</div>
+      </div>
+    </div>
+
+    <h1 class="login-heading" id="loginHeading">Sign in to your account</h1>
+    <p class="login-subheading">Access is restricted to authorised hospital staff only.</p>
+
+    <div class="demo-credentials" role="note">
+      <div class="demo-credentials-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Demo login: s.okonkwo@cityhospital.org / demo1234
+      </div>
+      <div class="demo-cred-row">
+        <span>s.okonkwo@cityhospital.org &mdash; Dermatologist</span>
+        <button class="btn btn-secondary btn-use demo-fill" data-email="s.okonkwo@cityhospital.org">Use</button>
+      </div>
+    </div>
+
+    <div class="alert alert-error login-error" role="alert" id="loginError">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="loginErrorMsg">Invalid email or password.</span>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="emailInput">Email address</label>
+        <div class="input-with-icon">
+          <span class="input-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+          <input type="email" class="form-control" id="emailInput" name="email" placeholder="clinician@hospital.org" autocomplete="email" required />
+        </div>
+        <div class="form-error hidden" id="emailError">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Please enter a valid email address.</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="passwordInput">Password</label>
+        <div class="password-field">
+          <input type="password" class="form-control" id="passwordInput" name="password" placeholder="Enter your password" autocomplete="current-password" required minlength="4" />
+          <button type="button" class="password-toggle" id="passwordToggle" aria-label="Show password">
+            <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div class="form-error hidden" id="passwordError">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Password must be at least 4 characters.</span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg btn-full" id="loginBtn">
+        <span class="login-btn-text">Sign in</span>
+        <span class="login-btn-spinner"><span class="spinner spinner-sm"></span>Signing in...</span>
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <strong>For authorised personnel only</strong>
+      By signing in you confirm you are a registered member of staff at a participating facility.
+      All activity is recorded and subject to audit.
+    </div>
+
+    <p style="margin-top:var(--space-5);text-align:center;font-size:var(--text-sm);color:var(--color-text-muted)">
+      Don't have an account? <a href="register.html">Create one</a>
+    </p>
+  </section>
+
+  <div class="login-visual" aria-hidden="true">
+    <div class="login-visual-pattern"></div>
+    <div class="login-visual-content">
+      <p class="login-visual-label">AI-ASSISTED DERMATOLOGY</p>
+      <div class="login-visual-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+      </div>
+      <h2 class="login-visual-title">Clinical-grade lesion<br>analysis at the point of care</h2>
+      <p class="login-visual-body">Upload a dermoscopic image, receive a probability score and referral recommendation in under two seconds. Every result is logged, auditable, and designed to support — not replace — clinical judgement.</p>
+      <div class="login-visual-stats">
+        <div class="login-stat"><div class="login-stat-value">94.2%</div><div class="login-stat-label">Model sensitivity</div></div>
+        <div class="login-stat"><div class="login-stat-value">&lt; 2s</div><div class="login-stat-label">Avg. inference time</div></div>
+        <div class="login-stat"><div class="login-stat-value">5</div><div class="login-stat-label">Participating hospitals</div></div>
+        <div class="login-stat"><div class="login-stat-value">1,073</div><div class="login-stat-label">Predictions to date</div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  // ── API base URL — update this if the backend moves ──────────────────────
+  var API_BASE = "/api";
+
+  // ── Element refs ──────────────────────────────────────────────────────────
+  var form           = document.getElementById("loginForm");
+  var emailInput     = document.getElementById("emailInput");
+  var passwordInput  = document.getElementById("passwordInput");
+  var loginBtn       = document.getElementById("loginBtn");
+  var loginError     = document.getElementById("loginError");
+  var loginErrorMsg  = document.getElementById("loginErrorMsg");
+  var emailError     = document.getElementById("emailError");
+  var passwordError  = document.getElementById("passwordError");
+  var passwordToggle = document.getElementById("passwordToggle");
+
+  // ── Demo-fill buttons — pre-fill the real test credentials ───────────────
+  document.querySelectorAll(".demo-fill").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      emailInput.value    = btn.dataset.email;
+      passwordInput.value = "demo1234";
+      emailInput.classList.remove("error");
+      passwordInput.classList.remove("error");
+    });
+  });
+
+  // ── Password show/hide toggle (unchanged) ─────────────────────────────────
+  passwordToggle.addEventListener("click", function() {
+    var isText = passwordInput.type === "text";
+    passwordInput.type = isText ? "password" : "text";
+    passwordToggle.setAttribute("aria-label", isText ? "Show password" : "Hide password");
+    passwordToggle.querySelector("svg").innerHTML = isText
+      ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+      : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  });
+
+  // ── UI helpers (unchanged) ────────────────────────────────────────────────
+  function setLoading(on) {
+    loginBtn.classList.toggle("btn-loading", on);
+    loginBtn.disabled = on;
+  }
+
+  function clearErrors() {
+    loginError.classList.remove("visible");
+    emailInput.classList.remove("error");
+    passwordInput.classList.remove("error");
+    emailError.classList.add("hidden");
+    passwordError.classList.add("hidden");
+  }
+
+  function showError(message) {
+    loginErrorMsg.textContent = message;
+    loginError.classList.add("visible");
+  }
+
+  function validateForm() {
+    var valid = true;
+    if (!emailInput.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim())) {
+      emailInput.classList.add("error");
+      emailError.classList.remove("hidden");
+      valid = false;
+    }
+    if (passwordInput.value.length < 4) {
+      passwordInput.classList.add("error");
+      passwordError.classList.remove("hidden");
+      valid = false;
+    }
+    return valid;
+  }
+
+  // ── Form submit — real fetch() to the backend ─────────────────────────────
+  form.addEventListener("submit", function(e) {
+    e.preventDefault();
+    clearErrors();
+    if (!validateForm()) return;
+    setLoading(true);
+
+    fetch(API_BASE + "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email:    emailInput.value.trim(),
+        password: passwordInput.value
+      })
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        // Pair the parsed body with the HTTP status for the next handler
+        return { status: response.status, data: data };
+      });
+    })
+    .then(function(result) {
+      if (result.status === 200 && result.data.success) {
+        // ── Success — persist token + user, then redirect ──────────────
+        localStorage.setItem("dermis_token", result.data.access_token);
+        localStorage.setItem("dermis_user",  JSON.stringify(result.data.user));
+        var role = result.data.user.role;
+        if (role === "admin")              { window.location.href = "dashboard-admin.html"; }
+        else if (role === "dermatologist") { window.location.href = "dashboard-doctor.html"; }
+        else if (role === "patient")       { window.location.href = "dashboard-patient.html"; }
+        else                               { window.location.href = "index.html"; }
+      } else {
+        // ── API-level error (401, 403, 400) — show backend message ─────
+        var msg = (result.data && result.data.message)
+          ? result.data.message
+          : "Sign in failed. Please try again.";
+        showError(msg);
+        setLoading(false);
+      }
+    })
+    .catch(function() {
+      // ── Network error — backend not reachable ─────────────────────────
+      showError("Cannot reach the server. Is the backend running?");
+      setLoading(false);
+    });
+  });
+
+  // ── Clear field errors on input (unchanged) ───────────────────────────────
+  emailInput.addEventListener("input", function() {
+    emailInput.classList.remove("error");
+    emailError.classList.add("hidden");
+  });
+  passwordInput.addEventListener("input", function() {
+    passwordInput.classList.remove("error");
+    passwordError.classList.add("hidden");
+  });
+</script>
+</body>
+</html>

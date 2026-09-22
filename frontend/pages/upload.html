@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload &amp; Predict — DermisAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .upload-layout { display:grid;grid-template-columns:420px 1fr;gap:var(--space-6);align-items:start; }
+    @media(max-width:960px){.upload-layout{grid-template-columns:1fr;}}
+    .step-indicator { display:flex;align-items:center;gap:0;margin-bottom:var(--space-8); }
+    .step { display:flex;align-items:center;gap:var(--space-2); }
+    .step-num { width:28px;height:28px;border-radius:50%;border:2px solid var(--color-border);display:flex;align-items:center;justify-content:center;font-size:var(--text-xs);font-weight:var(--weight-bold);color:var(--color-text-muted);background:var(--color-surface);flex-shrink:0;transition:all var(--transition-base); }
+    .step-num.active { border-color:var(--color-slate);background:var(--color-slate);color:#fff; }
+    .step-num.done   { border-color:var(--color-healthy);background:var(--color-healthy);color:#fff; }
+    .step-label { font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-text-muted);white-space:nowrap; }
+    .step-label.active { color:var(--color-slate);font-weight:var(--weight-semibold); }
+    .step-connector { flex:1;height:1px;background:var(--color-border);margin:0 var(--space-3); }
+    .form-section-title { font-size:var(--text-sm);font-weight:var(--weight-semibold);color:var(--color-text-primary);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--color-border-light);display:flex;align-items:center;gap:var(--space-2); }
+    .form-section-title svg { width:16px;height:16px;color:var(--color-text-muted); }
+    .result-panel { display:none; }
+    .result-panel.visible { display:block; }
+    .empty-panel { display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;text-align:center;gap:var(--space-4); }
+    .empty-panel svg { width:48px;height:48px;color:var(--color-border); }
+    .empty-panel-title { font-size:var(--text-base);font-weight:var(--weight-semibold);color:var(--color-text-muted); }
+    .empty-panel-sub { font-size:var(--text-sm);color:var(--color-text-muted);max-width:280px; }
+    .processing-panel { display:none;flex-direction:column;align-items:center;justify-content:center;min-height:400px;text-align:center;gap:var(--space-5); }
+    .processing-panel.visible { display:flex; }
+    .processing-icon { width:72px;height:72px;border-radius:var(--radius-full);background:var(--color-info-light);display:flex;align-items:center;justify-content:center;position:relative; }
+    .processing-icon .spinner { position:absolute;width:72px;height:72px;border-width:3px;border-color:rgba(29,111,164,0.15);border-top-color:var(--color-info); }
+    .processing-icon svg { width:32px;height:32px;color:var(--color-info);position:relative;z-index:1; }
+    .processing-title { font-size:var(--text-xl);font-weight:var(--weight-semibold); }
+    .processing-sub { font-size:var(--text-sm);color:var(--color-text-muted); }
+    .processing-steps { display:flex;flex-direction:column;gap:var(--space-3);text-align:left;min-width:220px; }
+    .proc-step { display:flex;align-items:center;gap:var(--space-3);font-size:var(--text-sm);color:var(--color-text-muted); }
+    .proc-step svg { width:16px;height:16px;flex-shrink:0; }
+    .proc-step.done   { color:var(--color-healthy); }
+    .proc-step.active { color:var(--color-text-primary);font-weight:var(--weight-medium); }
+    .verified-tag { display:inline-flex;align-items:center;gap:var(--space-1);font-size:var(--text-xs);font-weight:var(--weight-medium);color:var(--color-info);background:var(--color-info-light);border:1px solid var(--color-info-border);padding:2px 8px;border-radius:var(--radius-full); }
+    .verified-tag svg { width:11px;height:11px; }
+    .result-metric-value.large { font-size:var(--text-2xl); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="navMount"></div>
+  <main class="main-content" id="mainContent">
+    <div class="page-header">
+      <div class="page-header-text">
+        <h1 class="page-title">Upload &amp; Predict</h1>
+        <p class="page-subtitle">Submit a dermoscopic image for AI analysis</p>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="upload-layout">
+        <!-- LEFT: Form -->
+        <div>
+          <div class="step-indicator" id="stepIndicator">
+            <div class="step"><div class="step-num active" id="step1Num">1</div><span class="step-label active" id="step1Label">Patient</span></div>
+            <div class="step-connector"></div>
+            <div class="step"><div class="step-num" id="step2Num">2</div><span class="step-label" id="step2Label">Image</span></div>
+            <div class="step-connector"></div>
+            <div class="step"><div class="step-num" id="step3Num">3</div><span class="step-label" id="step3Label">Analyse</span></div>
+          </div>
+          <form id="predictForm" novalidate>
+            <div class="card">
+              <div class="card-body">
+                <div class="form-section-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  Patient record
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="patientMode">Patient</label>
+                  <select class="form-control" id="patientMode">
+                    <option value="existing">Select existing patient</option>
+                    <option value="new">Register new patient</option>
+                  </select>
+                </div>
+                <div id="existingPatientPanel">
+                  <div class="form-group">
+                    <label class="form-label" for="patientSelect">Select patient</label>
+                    <select class="form-control" id="patientSelect" required>
+                      <option value="">— Select patient —</option>
+                      <option value="PAT-0001">PAT-0001 · Age 55–64 · Fitzpatrick III</option>
+                      <option value="PAT-0002">PAT-0002 · Age 35–44 · Fitzpatrick II</option>
+                      <option value="PAT-0003">PAT-0003 · Age 65–74 · Fitzpatrick IV</option>
+                      <option value="PAT-0004">PAT-0004 · Age 25–34 · Fitzpatrick I</option>
+                      <option value="PAT-0005">PAT-0005 · Age 45–54 · Fitzpatrick V</option>
+                      <option value="PAT-0006">PAT-0006 · Age 75+ · Fitzpatrick II</option>
+                    </select>
+                  </div>
+                </div>
+                <div id="newPatientPanel" class="hidden">
+                  <div class="grid-form-2">
+                    <div class="form-group">
+                      <label class="form-label" for="ageGroup">Age group</label>
+                      <select class="form-control" id="ageGroup">
+                        <option value="">Select age group</option>
+                        <option>Under 18</option><option>18–24</option><option>25–34</option><option>35–44</option>
+                        <option>45–54</option><option>55–64</option><option>65–74</option><option>75+</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="skinType">Fitzpatrick skin type</label>
+                      <select class="form-control" id="skinType">
+                        <option value="">Select type</option>
+                        <option value="I">Type I — Very fair</option><option value="II">Type II — Fair</option>
+                        <option value="III">Type III — Medium</option><option value="IV">Type IV — Olive</option>
+                        <option value="V">Type V — Brown</option><option value="VI">Type VI — Dark brown / Black</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p class="form-hint" style="margin-top:calc(var(--space-2)*-1);margin-bottom:var(--space-4)">Patient IDs are auto-generated. No personal identifiers are stored.</p>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="form-section-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+                  Lesion details
+                </div>
+                <div class="grid-form-2">
+                  <div class="form-group">
+                    <label class="form-label" for="locationInput">Anatomical location</label>
+                    <select class="form-control" id="locationInput" required>
+                      <option value="">Select location</option>
+                      <optgroup label="Head &amp; Neck"><option>Scalp</option><option>Face</option><option>Left temple</option><option>Right temple</option><option>Neck</option><option>Ear</option></optgroup>
+                      <optgroup label="Trunk"><option>Upper chest</option><option>Lower chest</option><option>Upper back</option><option>Lower back</option><option>Abdomen</option></optgroup>
+                      <optgroup label="Upper limb"><option>Right shoulder</option><option>Left shoulder</option><option>Right upper arm</option><option>Left upper arm</option><option>Right forearm</option><option>Left forearm</option><option>Right hand</option><option>Left hand</option></optgroup>
+                      <optgroup label="Lower limb"><option>Right thigh</option><option>Left thigh</option><option>Right calf</option><option>Left calf</option><option>Right foot</option><option>Left foot</option></optgroup>
+                    </select>
+                    <div class="form-error hidden" id="locationError">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      Please select a location.
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="sizeInput">Approximate size (mm)</label>
+                    <input type="number" class="form-control" id="sizeInput" placeholder="e.g. 8" min="1" max="200" />
+                    <span class="form-hint">Longest diameter</span>
+                  </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="form-section-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  Lesion image
+                </div>
+                <div id="uploadZoneWrap">
+                  <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" aria-label="Upload lesion image" />
+                    <div class="upload-zone-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                    <div class="upload-zone-title">Drag &amp; drop or click to upload</div>
+                    <div class="upload-zone-hint">JPEG, PNG, WEBP — max 10 MB</div>
+                  </div>
+                  <div class="form-error hidden" id="imageError" style="margin-top:var(--space-2)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Please upload a lesion image.
+                  </div>
+                </div>
+                <div id="previewWrap" class="hidden" style="margin-top:var(--space-3)">
+                  <div class="upload-preview" id="uploadPreview">
+                    <img id="previewImg" src="" alt="Lesion preview" />
+                    <button type="button" class="upload-preview-remove" id="removeImage" aria-label="Remove image">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="card-footer" style="display:flex;justify-content:flex-end;gap:var(--space-3)">
+                <button type="button" class="btn btn-secondary" id="resetBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                  Reset
+                </button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                  <span id="submitBtnText">Run analysis</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- RIGHT: Result / empty / processing -->
+        <div>
+          <div id="emptyPanel" class="card">
+            <div class="empty-panel">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <p class="empty-panel-title">No analysis yet</p>
+              <p class="empty-panel-sub">Complete the form and upload an image to receive an AI prediction.</p>
+            </div>
+          </div>
+          <div id="processingPanel" class="card processing-panel">
+            <div class="processing-icon">
+              <div class="spinner"></div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+            </div>
+            <p class="processing-title">Analysing image</p>
+            <p class="processing-sub">The model is processing your submission</p>
+            <div class="processing-steps">
+              <div class="proc-step done" id="procStep1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Image validated</div>
+              <div class="proc-step active" id="procStep2"><div class="spinner spinner-sm"></div>Running inference model</div>
+              <div class="proc-step" id="procStep3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"><polyline points="20 6 9 17 4 12"/></svg>Generating report</div>
+            </div>
+          </div>
+          <div id="resultPanel" class="result-panel"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ── Auth guard & user ── */
+  sessionStorage.removeItem("dermis_user");
+
+  var API_BASE = "/api";
+  var token    = localStorage.getItem("dermis_token");
+  var rawUser  = localStorage.getItem("dermis_user");
+  if (!token || !rawUser) { window.location.href = "index.html"; }
+  var currentUser = JSON.parse(rawUser);
+  if (currentUser.role !== "dermatologist") { window.location.href = "index.html"; }
+
+  /* ── Icons ── */
+  var LOGO_SVG   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>';
+  var LOGOUT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
+  var DASH_SVG   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>';
+  var UPLOAD_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>';
+  var APPT_SVG   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  var MENU_SVG   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+
+  var ROLE_LABELS = { admin: "Administrator", dermatologist: "Dermatologist", patient: "Patient" };
+
+  function initials(name) {
+    return name.split(" ").filter(function(w){ return w; }).map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
+  }
+
+  /* ── Sidebar (2 items: Dashboard + Upload & Predict) ── */
+  function initNav() {
+    var navItems =
+      '<a href="dashboard-doctor.html" class="nav-item">' + DASH_SVG + '<span>Dashboard</span></a>' +
+      '<a href="upload.html" class="nav-item active" aria-current="page">' + UPLOAD_SVG + '<span>Upload &amp; Predict</span></a>' +
+      '<a href="dashboard-doctor-appointments.html" class="nav-item">' + APPT_SVG + '<span>Appointments</span></a>';
+
+    var sidebar =
+      '<aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">' +
+        '<div class="sidebar-header"><div class="sidebar-logo">' + LOGO_SVG + '</div>' +
+        '<div class="sidebar-brand"><span class="sidebar-brand-name">DermisAI</span><span class="sidebar-brand-sub">Clinical Detection</span></div></div>' +
+        '<nav class="sidebar-nav"><div class="nav-section"><span class="nav-section-label">Navigation</span></div>' + navItems + '</nav>' +
+        '<div class="sidebar-footer"><div class="sidebar-user">' +
+          '<div class="user-avatar">' + initials(currentUser.full_name || currentUser.email) + '</div>' +
+          '<div class="user-info"><div class="user-name">' + (currentUser.full_name || currentUser.email) + '</div>' +
+          '<div class="user-role">' + (ROLE_LABELS[currentUser.role] || currentUser.role) + '</div></div></div>' +
+          '<a href="#" id="logoutLink" class="btn-logout">' + LOGOUT_SVG + '<span>Sign out</span></a>' +
+        '</div></aside>' +
+        '<div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>';
+
+    var mobileHeader =
+      '<header class="mobile-header" role="banner">' +
+        '<div class="mobile-header-brand">' + LOGO_SVG + '<span>Upload &amp; Predict</span></div>' +
+        '<button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open navigation menu" aria-expanded="false">' + MENU_SVG + '</button>' +
+      '</header>';
+
+    var mount = document.getElementById("navMount");
+    if (mount) { mount.innerHTML = sidebar + mobileHeader; }
+
+    var mhEl = document.querySelector(".mobile-header"), al = document.querySelector(".app-layout");
+    if (mhEl && al && al.contains(mhEl)) { al.parentNode.insertBefore(mhEl, al); }
+
+    var btn = document.getElementById("mobileMenuBtn"), sb = document.getElementById("sidebar"), ov = document.getElementById("sidebarOverlay");
+    if (btn && sb && ov) {
+      btn.addEventListener("click", function(){ sb.classList.add("open"); ov.classList.add("active"); btn.setAttribute("aria-expanded","true"); document.body.style.overflow="hidden"; });
+      ov.addEventListener("click",  function(){ sb.classList.remove("open"); ov.classList.remove("active"); btn.setAttribute("aria-expanded","false"); document.body.style.overflow=""; });
+    }
+
+    document.getElementById("logoutLink").addEventListener("click", function(e) {
+      e.preventDefault();
+      localStorage.removeItem("dermis_token");
+      localStorage.removeItem("dermis_user");
+      sessionStorage.removeItem("dermis_user");
+      window.location.href = "index.html";
+    });
+  }
+
+  initNav();
+
+  /* ── Page logic ── */
+  var selectedFile = null, lastResult = null;
+
+var form=document.getElementById("predictForm");
+var patientMode=document.getElementById("patientMode");
+var existingPanel=document.getElementById("existingPatientPanel");
+var newPatientPanel=document.getElementById("newPatientPanel");
+var patientSelect=document.getElementById("patientSelect");
+var imageInput=document.getElementById("imageInput");
+var uploadZone=document.getElementById("uploadZone");
+var uploadZoneWrap=document.getElementById("uploadZoneWrap");
+var previewWrap=document.getElementById("previewWrap");
+var previewImg=document.getElementById("previewImg");
+var removeImageBtn=document.getElementById("removeImage");
+var submitBtn=document.getElementById("submitBtn");
+var submitBtnText=document.getElementById("submitBtnText");
+var resetBtn=document.getElementById("resetBtn");
+var emptyPanel=document.getElementById("emptyPanel");
+var processingPanel=document.getElementById("processingPanel");
+var resultPanel=document.getElementById("resultPanel");
+var locationError=document.getElementById("locationError");
+var imageError=document.getElementById("imageError");
+
+patientMode.addEventListener("change",function(){
+  var isNew=patientMode.value==="new";
+  newPatientPanel.classList.toggle("hidden",!isNew);
+  existingPanel.classList.toggle("hidden",isNew);
+});
+
+imageInput.addEventListener("change",function(){if(imageInput.files[0])setPreview(imageInput.files[0]);});
+uploadZone.addEventListener("dragover",function(e){e.preventDefault();uploadZone.classList.add("dragover");});
+uploadZone.addEventListener("dragleave",function(){uploadZone.classList.remove("dragover");});
+uploadZone.addEventListener("drop",function(e){e.preventDefault();uploadZone.classList.remove("dragover");var f=e.dataTransfer.files[0];if(f&&f.type.startsWith("image/"))setPreview(f);});
+
+function setPreview(file){
+  selectedFile=file;
+  previewImg.src=URL.createObjectURL(file);
+  uploadZoneWrap.classList.add("hidden");
+  previewWrap.classList.remove("hidden");
+  imageError.classList.add("hidden");
+  advanceStep(2);
+}
+
+removeImageBtn.addEventListener("click",function(){
+  selectedFile=null;imageInput.value="";previewImg.src="";
+  uploadZoneWrap.classList.remove("hidden");previewWrap.classList.add("hidden");retreatStep(2);
+});
+
+function advanceStep(step){
+  if(step>=2){document.getElementById("step2Num").classList.add("active");document.getElementById("step2Label").classList.add("active");}
+  if(step>=3){document.getElementById("step3Num").classList.add("active");document.getElementById("step3Label").classList.add("active");}
+}
+function retreatStep(step){
+  if(step<=2){document.getElementById("step2Num").classList.remove("active","done");document.getElementById("step2Label").classList.remove("active");}
+}
+
+resetBtn.addEventListener("click",resetForm);
+function resetForm(){
+  form.reset();selectedFile=null;imageInput.value="";previewImg.src="";
+  uploadZoneWrap.classList.remove("hidden");previewWrap.classList.add("hidden");
+  newPatientPanel.classList.add("hidden");existingPanel.classList.remove("hidden");
+  emptyPanel.style.display="";processingPanel.classList.remove("visible");
+  resultPanel.classList.remove("visible");resultPanel.innerHTML="";
+  locationError.classList.add("hidden");imageError.classList.add("hidden");
+  ["step1Num","step2Num","step3Num"].forEach(function(id){document.getElementById(id).className="step-num";});
+  ["step1Label","step2Label","step3Label"].forEach(function(id){document.getElementById(id).className="step-label";});
+  document.getElementById("step1Num").classList.add("active");document.getElementById("step1Label").classList.add("active");
+  submitBtn.disabled=false;submitBtnText.textContent="Run analysis";
+}
+
+form.addEventListener("submit",function(e){
+  e.preventDefault();
+  var valid=true;
+  var location=document.getElementById("locationInput").value;
+  if(!location){locationError.classList.remove("hidden");valid=false;}else{locationError.classList.add("hidden");}
+  if(!selectedFile){imageError.classList.remove("hidden");valid=false;}else{imageError.classList.add("hidden");}
+  if(!valid)return;
+
+  emptyPanel.style.display="none";processingPanel.classList.add("visible");resultPanel.classList.remove("visible");
+  submitBtn.disabled=true;submitBtnText.textContent="Analysing...";advanceStep(3);
+
+  setTimeout(function(){
+    document.getElementById("procStep2").className="proc-step done";
+    document.getElementById("procStep2").innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Running inference model';
+    document.getElementById("procStep3").className="proc-step active";
+    document.getElementById("procStep3").innerHTML='<div class="spinner spinner-sm"></div>Generating report';
+  }, 900);
+
+  setTimeout(function(){
+    var isCancer=Math.random()>0.55;
+    var probability=isCancer?(0.60+Math.random()*0.38):(0.03+Math.random()*0.30);
+    var patientId=patientMode.value==="new"?("PAT-"+String(patientCounter++).padStart(4,"0")):(patientSelect.value||"PAT-0001");
+    lastResult={
+      id:"PRED-"+(1092+Math.floor(Math.random()*100)),
+      patient:patientId,
+      clinician:currentUser.full_name || currentUser.email,
+      result:isCancer?"cancer_detected":"healthy",
+      probability:parseFloat(probability.toFixed(3)),
+      referral:isCancer&&probability>0.70,
+      location:location,
+      processing_ms:1800+Math.floor(Math.random()*400),
+      confidence:parseFloat((0.80+Math.random()*0.18).toFixed(2)),
+      time:new Date().toISOString(),
+      verified:false
+    };
+    processingPanel.classList.remove("visible");
+    renderResult(lastResult);
+  }, 2000);
+});
+
+function renderResult(r){
+  var isConcern=r.result==="cancer_detected";
+  var prob=Math.round(r.probability*100);
+  var conf=Math.round(r.confidence*100);
+  var cardClass=isConcern?"concern":"healthy";
+  resultPanel.innerHTML=
+    '<div class="result-card '+cardClass+'">'+
+      '<div class="result-header">'+
+        '<div class="result-verdict-icon">'+(isConcern?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>')+'</div>'+
+        '<div class="result-verdict-text">'+
+          '<div class="result-verdict-label">'+(isConcern?"Concern detected":"No concern detected")+'</div>'+
+          '<div class="result-verdict-sub">'+(isConcern?"Findings warrant clinical review.":"Lesion classified as benign.")+'&nbsp;'+(r.referral?'<span class="badge badge-concern">Referral recommended</span>':'<span class="badge badge-healthy">No referral required</span>')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="result-body">'+
+        '<div class="result-metric"><span class="result-metric-label">Malignancy probability</span><span class="result-metric-value large">'+prob+'%</span><div class="prob-bar-track"><div class="prob-bar-fill '+cardClass+'" style="width:'+prob+'%"></div></div></div>'+
+        '<div class="result-metric"><span class="result-metric-label">Model confidence</span><span class="result-metric-value">'+conf+'%</span></div>'+
+        '<div class="result-metric"><span class="result-metric-label">Processing time</span><span class="result-metric-value">'+(r.processing_ms/1000).toFixed(2)+'s</span></div>'+
+        '<div class="result-metric"><span class="result-metric-label">Location</span><span class="result-metric-value" style="font-size:var(--text-base)">'+r.location+'</span></div>'+
+        '<div class="result-metric"><span class="result-metric-label">Patient</span><span class="patient-id" style="font-size:var(--text-sm);margin-top:4px">'+r.patient+'</span></div>'+
+        '<div class="result-metric"><span class="result-metric-label">Prediction ID</span><span class="patient-id" style="font-size:var(--text-sm);margin-top:4px">'+r.id+'</span></div>'+
+      '</div>'+
+      '<div class="result-actions" id="resultActions">'+
+        '<button class="btn btn-success" id="agreeBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Confirm result</button>'+
+        '<button class="btn btn-danger" id="disagreeBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Disagree</button>'+
+        '<button class="btn btn-secondary" id="newPredBtn" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New prediction</button>'+
+      '</div>'+
+    '</div>';
+  resultPanel.classList.add("visible");
+
+  document.getElementById("agreeBtn").addEventListener("click",function(){handleVerify("agree");});
+  document.getElementById("disagreeBtn").addEventListener("click",function(){handleVerify("disagree");});
+  document.getElementById("newPredBtn").addEventListener("click",resetForm);
+}
+
+function handleVerify(verdict){
+  document.getElementById("agreeBtn").disabled=true;
+  document.getElementById("disagreeBtn").disabled=true;
+  setTimeout(function(){
+    document.getElementById("resultActions").innerHTML=
+      '<span class="verified-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Clinician verification recorded</span>'+
+      '<button class="btn btn-secondary btn-sm" id="newPredBtn2" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New prediction</button>';
+    document.getElementById("newPredBtn2").addEventListener("click",resetForm);
+  },400);
+}
+
+/* ── Boot ── */
+initNav();
+</script>
+</body>
+</html>

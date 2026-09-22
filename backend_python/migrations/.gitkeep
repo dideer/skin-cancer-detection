@@ -1,0 +1,1 @@
+# Flask-Migrate will populate this directory on first `flask db init`.

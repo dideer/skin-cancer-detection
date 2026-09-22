@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — DermisAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="app-layout">
+  <div id="navMount"></div>
+
+  <main class="main-content" id="mainContent">
+    <div class="page-header">
+      <div class="page-header-text">
+        <h1 class="page-title">Admin Dashboard</h1>
+        <p class="page-subtitle">System overview and user management</p>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Stat cards -->
+      <div class="grid-4" style="margin-bottom:var(--space-6)">
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <div>
+              <div class="stat-card-value" id="statUsers">—</div>
+              <div class="stat-card-label">Total Users</div>
+            </div>
+            <div class="stat-card-icon icon-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <div>
+              <div class="stat-card-value" id="statPredictions">—</div>
+              <div class="stat-card-label">Total Predictions</div>
+            </div>
+            <div class="stat-card-icon icon-green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <div>
+              <div class="stat-card-value" id="statPatients">—</div>
+              <div class="stat-card-label">Total Patients</div>
+            </div>
+            <div class="stat-card-icon icon-amber">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <div>
+              <div class="stat-card-value" id="statHospitals">—</div>
+              <div class="stat-card-label">Hospitals</div>
+            </div>
+            <div class="stat-card-icon icon-navy">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users table -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Users</h2>
+        </div>
+        <div class="table-container" style="border-radius:0;border:none;box-shadow:none">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="4" style="text-align:center;padding:var(--space-8);color:var(--color-text-muted)">
+                  User list coming soon
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  var API_BASE = "/api";
+
+  // ── Clear legacy sessionStorage ───────────────────────────────────────────
+  sessionStorage.removeItem("dermis_user");
+
+  // ── Auth guard ─────────────────────────────────────────────────────────────
+  var token   = localStorage.getItem("dermis_token");
+  var rawUser = localStorage.getItem("dermis_user");
+  if (!token || !rawUser) { window.location.href = "index.html"; }
+  var currentUser = JSON.parse(rawUser);
+  if (currentUser.role !== "admin") { window.location.href = "index.html"; }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  var ROLE_LABELS = { admin: "Administrator", dermatologist: "Dermatologist", patient: "Patient" };
+
+  function initials(name) {
+    return name.split(" ").filter(function(w){return w;}).map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "Never";
+    return new Date(iso).toLocaleString("en-GB", {day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  }
+
+  function authHeaders() {
+    return { "Content-Type": "application/json", "Authorization": "Bearer " + token };
+  }
+
+  // ── Build sidebar ──────────────────────────────────────────────────────────
+  var LOGO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>';
+  var LOGOUT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>';
+  var DASH_SVG  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>';
+  var MENU_SVG  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+
+  function buildNav() {
+    var navItems = '<a href="dashboard-admin.html" class="nav-item active" aria-current="page">' + DASH_SVG + '<span>Dashboard</span></a>';
+    var sidebar =
+      '<aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">' +
+        '<div class="sidebar-header"><div class="sidebar-logo">' + LOGO_SVG + '</div>' +
+        '<div class="sidebar-brand"><span class="sidebar-brand-name">DermisAI</span><span class="sidebar-brand-sub">Clinical Detection</span></div></div>' +
+        '<nav class="sidebar-nav"><div class="nav-section"><span class="nav-section-label">Navigation</span></div>' + navItems + '</nav>' +
+        '<div class="sidebar-footer"><div class="sidebar-user">' +
+          '<div class="user-avatar">' + initials(currentUser.full_name || currentUser.email) + '</div>' +
+          '<div class="user-info"><div class="user-name">' + (currentUser.full_name || currentUser.email) + '</div>' +
+          '<div class="user-role">' + (ROLE_LABELS[currentUser.role] || currentUser.role) + '</div></div></div>' +
+          '<a href="#" id="logoutLink" class="btn-logout">' + LOGOUT_SVG + '<span>Sign out</span></a>' +
+        '</div></aside>' +
+        '<div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>';
+    var mobileHeader =
+      '<header class="mobile-header" role="banner">' +
+        '<div class="mobile-header-brand">' + LOGO_SVG + '<span>Admin Dashboard</span></div>' +
+        '<button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open navigation menu" aria-expanded="false">' + MENU_SVG + '</button>' +
+      '</header>';
+    var mount = document.getElementById("navMount");
+    if (mount) { mount.innerHTML = sidebar + mobileHeader; }
+    var mhEl = document.querySelector(".mobile-header"), al = document.querySelector(".app-layout");
+    if (mhEl && al && al.contains(mhEl)) { al.parentNode.insertBefore(mhEl, al); }
+    var btn = document.getElementById("mobileMenuBtn"), sb = document.getElementById("sidebar"), ov = document.getElementById("sidebarOverlay");
+    if (btn && sb && ov) {
+      btn.addEventListener("click", function(){ sb.classList.add("open"); ov.classList.add("active"); btn.setAttribute("aria-expanded","true"); document.body.style.overflow="hidden"; });
+      ov.addEventListener("click",  function(){ sb.classList.remove("open"); ov.classList.remove("active"); btn.setAttribute("aria-expanded","false"); document.body.style.overflow=""; });
+    }
+    document.getElementById("logoutLink").addEventListener("click", function(e){
+      e.preventDefault(); localStorage.removeItem("dermis_token"); localStorage.removeItem("dermis_user"); sessionStorage.removeItem("dermis_user"); window.location.href = "index.html";
+    });
+  }
+
+  buildNav();
+
+  // ── Table element references ────────────────────────────────────────────────
+  var tbody = document.querySelector("tbody");
+
+  // ── Skeleton rows while loading ─────────────────────────────────────────────
+  function showSkeleton() {
+    var row = '<tr><td><div class="skeleton skeleton-text" style="width:120px"></div></td><td><div class="skeleton skeleton-text" style="width:180px"></div></td><td><div class="skeleton skeleton-text" style="width:90px"></div></td><td><div class="skeleton skeleton-text" style="width:60px"></div></td><td><div class="skeleton skeleton-text" style="width:120px"></div></td></tr>';
+    tbody.innerHTML = row + row + row;
+  }
+
+  // ── Error state in table ────────────────────────────────────────────────────
+  function showTableError(msg) {
+    tbody.innerHTML =
+      '<tr><td colspan="5">' +
+        '<div class="state-container">' +
+          '<div class="state-icon error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>' +
+          '<p class="state-title">Failed to load users</p>' +
+          '<p class="state-description">' + msg + '</p>' +
+          '<button class="btn btn-secondary btn-sm" id="retryBtn" style="margin-top:var(--space-4)">Retry</button>' +
+        '</div>' +
+      '</td></tr>';
+    document.getElementById("retryBtn").addEventListener("click", loadData);
+  }
+
+  // ── Render users table ──────────────────────────────────────────────────────
+  function renderUsers(users) {
+    if (!users || !users.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="state-container"><p class="state-title">No users found.</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(function(u) {
+      var statusBadge = u.active
+        ? '<span class="badge badge-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px;height:11px"><polyline points="20 6 9 17 4 12"/></svg>Active</span>'
+        : '<span class="badge badge-inactive">Inactive</span>';
+      var roleBadgeClass = u.role === "admin" ? "badge-info" : u.role === "dermatologist" ? "badge-info" : "badge-neutral";
+      return '<tr>' +
+        '<td style="font-weight:var(--weight-medium)">' + (u.full_name || "—") + '</td>' +
+        '<td style="color:var(--color-text-secondary);font-size:var(--text-sm)">' + u.email + '</td>' +
+        '<td><span class="badge ' + roleBadgeClass + '">' + (ROLE_LABELS[u.role] || u.role) + '</span></td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td style="color:var(--color-text-muted);font-size:var(--text-sm);white-space:nowrap">' + fmtDate(u.last_login) + '</td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  // ── Load all data ───────────────────────────────────────────────────────────
+  function loadData() {
+    showSkeleton();
+
+    Promise.all([
+      fetch(API_BASE + "/stats/admin",   { headers: authHeaders() }).then(function(r){ return r.json().then(function(d){ return {status:r.status,data:d}; }); }),
+      fetch(API_BASE + "/users?limit=50",{ headers: authHeaders() }).then(function(r){ return r.json().then(function(d){ return {status:r.status,data:d}; }); })
+    ])
+    .then(function(results) {
+      var statsRes = results[0], usersRes = results[1];
+
+      // Handle 401 → force re-login
+      if (statsRes.status === 401 || usersRes.status === 401) {
+        localStorage.removeItem("dermis_token"); localStorage.removeItem("dermis_user");
+        window.location.href = "index.html"; return;
+      }
+
+      // Fill stat cards
+      if (statsRes.data && statsRes.data.success) {
+        var s = statsRes.data.stats;
+        document.getElementById("statUsers").textContent       = s.total_users       !== undefined ? s.total_users       : "—";
+        document.getElementById("statPredictions").textContent = s.total_predictions !== undefined ? s.total_predictions : "—";
+        document.getElementById("statPatients").textContent    = s.total_patients    !== undefined ? s.total_patients    : "—";
+        document.getElementById("statHospitals").textContent   = s.total_hospitals   !== undefined ? s.total_hospitals   : "—";
+      }
+
+      // Fill users table
+      if (usersRes.data && usersRes.data.success) {
+        renderUsers(usersRes.data.users);
+      } else {
+        showTableError((usersRes.data && usersRes.data.message) || "Unknown error");
+      }
+    })
+    .catch(function() {
+      showTableError("Cannot reach the server. Is the backend running?");
+    });
+  }
+
+  // Update the users table header to include Last Login column
+  document.querySelector("thead tr").innerHTML = "<th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th>";
+
+  loadData();
+</script>
+</body>
+</html>

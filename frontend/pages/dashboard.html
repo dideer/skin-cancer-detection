@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — DermisAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-6); margin-top: var(--space-6); }
+    .chart-card { grid-column: 1 / 3; }
+    .dist-card  { grid-column: 3 / 4; }
+    .recent-card { grid-column: 1 / -1; }
+    @media (max-width: 1100px) { .chart-card { grid-column: 1 / -1; } .dist-card { grid-column: 1 / -1; } }
+    @media (max-width: 768px)  { .dashboard-grid { grid-template-columns: 1fr; } .chart-card,.dist-card,.recent-card { grid-column: 1 / -1; } }
+    .chart-legend { display: flex; gap: var(--space-5); margin-bottom: var(--space-4); }
+    .legend-item  { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--color-text-secondary); }
+    .legend-dot   { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .dist-chart   { display: flex; align-items: center; justify-content: center; gap: var(--space-8); padding: var(--space-4) 0; }
+    .dist-legend  { display: flex; flex-direction: column; gap: var(--space-3); }
+    .dist-legend-item  { display: flex; align-items: center; gap: var(--space-3); }
+    .dist-legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+    .dist-legend-label { font-size: var(--text-sm); color: var(--color-text-secondary); }
+    .dist-legend-value { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-text-primary); margin-left: auto; padding-left: var(--space-4); }
+    .result-pill { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-xs); font-weight: var(--weight-semibold); padding: 2px 8px; border-radius: var(--radius-full); white-space: nowrap; }
+    .result-pill svg { width: 10px; height: 10px; }
+    .prob-mini { display: flex; align-items: center; gap: var(--space-3); }
+    .prob-mini-bar { flex: 1; height: 5px; background: var(--color-bg-alt); border-radius: var(--radius-full); overflow: hidden; min-width: 60px; }
+    .prob-mini-fill { height: 100%; border-radius: var(--radius-full); }
+    .prob-mini-val { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--color-text-secondary); min-width: 36px; text-align: right; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="navMount"></div>
+  <main class="main-content" id="mainContent">
+    <div class="page-header">
+      <div class="page-header-text">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">System overview and recent activity</p>
+      </div>
+      <a href="upload.html" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        New Prediction
+      </a>
+    </div>
+    <div class="page-body">
+      <div class="grid-4" id="statsGrid">
+        <div class="stat-card"><div class="skeleton skeleton-text-lg" style="width:60%;margin-bottom:12px"></div><div class="skeleton skeleton-text" style="width:40%"></div></div>
+        <div class="stat-card"><div class="skeleton skeleton-text-lg" style="width:60%;margin-bottom:12px"></div><div class="skeleton skeleton-text" style="width:40%"></div></div>
+        <div class="stat-card"><div class="skeleton skeleton-text-lg" style="width:60%;margin-bottom:12px"></div><div class="skeleton skeleton-text" style="width:40%"></div></div>
+        <div class="stat-card"><div class="skeleton skeleton-text-lg" style="width:60%;margin-bottom:12px"></div><div class="skeleton skeleton-text" style="width:40%"></div></div>
+      </div>
+      <div class="dashboard-grid">
+        <div class="card chart-card">
+          <div class="card-header">
+            <h2 class="card-title">Weekly activity</h2>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:var(--color-slate)"></div>Predictions</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--color-concern)"></div>Referrals</div>
+            </div>
+          </div>
+          <div class="card-body"><div id="weeklyChart" class="chart-area"></div></div>
+        </div>
+        <div class="card dist-card">
+          <div class="card-header"><h2 class="card-title">Result distribution</h2></div>
+          <div class="card-body"><div class="dist-chart" id="distChart"></div></div>
+        </div>
+        <div class="card recent-card">
+          <div class="card-header">
+            <h2 class="card-title">Recent predictions</h2>
+            <a href="upload.html" class="btn btn-secondary btn-sm">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New
+            </a>
+          </div>
+          <div class="table-container" style="border-radius:0;border:none;box-shadow:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Prediction ID</th><th>Patient</th><th>Clinician</th><th>Result</th>
+                  <th>Probability</th><th>Referral</th><th>Date</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="recentTbody">
+                <tr class="skeleton-row"><td colspan="8"><div class="skeleton skeleton-text" style="width:100%"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="8"><div class="skeleton skeleton-text" style="width:90%"></div></td></tr>
+                <tr class="skeleton-row"><td colspan="8"><div class="skeleton skeleton-text" style="width:95%"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ── Shared nav/helpers ── */
+var DEMO_CURRENT_USER = (function() {
+  try { return JSON.parse(sessionStorage.getItem("dermis_user")) || { name: "Dr. Sarah Okonkwo", role: "dermatologist", email: "s.okonkwo@cityhospital.org" }; } catch(e) { return { name: "Dr. Sarah Okonkwo", role: "dermatologist", email: "s.okonkwo@cityhospital.org" }; }
+})();
+
+var NAV_LINKS = [
+  { href: "dashboard.html", label: "Dashboard",        icon: "dashboard" },
+  { href: "upload.html",    label: "Upload & Predict",  icon: "upload" },
+  { href: "patients.html",  label: "Patients",          icon: "patients" },
+  { href: "admin.html",     label: "Administration",    icon: "admin" },
+  { href: "audit.html",     label: "Audit Log",         icon: "audit" },
+];
+var NAV_ICONS = {
+  logo:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>',
+  dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  upload:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+  patients:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  admin:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>',
+  audit:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',
+  logout:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  menu:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+};
+var ROLE_LABELS = { admin:"Administrator", dermatologist:"Dermatologist", general_practitioner:"General Practitioner", nurse:"Nurse" };
+function initials(name) { return name.split(" ").filter(Boolean).map(function(w){return w[0];}).join("").slice(0,2).toUpperCase(); }
+function currentPage() { return window.location.pathname.split("/").pop() || "index.html"; }
+function formatDateTime(iso) { if (!iso) return "—"; return new Date(iso).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}); }
+
+function initNav() {
+  var user = DEMO_CURRENT_USER;
+  var page = currentPage();
+  var navItems = NAV_LINKS.map(function(link) {
+    var active = page === link.href ? "active" : "";
+    return '<a href="'+link.href+'" class="nav-item '+active+'" aria-current="'+(active?"page":"false")+'">'+NAV_ICONS[link.icon]+'<span>'+link.label+'</span></a>';
+  }).join("");
+  var sidebar = '<aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation"><div class="sidebar-header"><div class="sidebar-logo">'+NAV_ICONS.logo+'</div><div class="sidebar-brand"><span class="sidebar-brand-name">DermisAI</span><span class="sidebar-brand-sub">Clinical Detection</span></div></div><nav class="sidebar-nav"><div class="nav-section"><span class="nav-section-label">Navigation</span></div>'+navItems+'</nav><div class="sidebar-footer"><div class="sidebar-user"><div class="user-avatar">'+initials(user.name)+'</div><div class="user-info"><div class="user-name">'+user.name+'</div><div class="user-role">'+(ROLE_LABELS[user.role]||user.role)+'</div></div></div><a href="index.html" class="btn-logout">'+NAV_ICONS.logout+'<span>Sign out</span></a></div></aside><div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>';
+  var link = NAV_LINKS.find(function(l){return l.href===page;});
+  var mobileHeader = '<header class="mobile-header" role="banner"><div class="mobile-header-brand">'+NAV_ICONS.logo+'<span>'+(link?link.label:"DermisAI")+'</span></div><button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebar">'+NAV_ICONS.menu+'</button></header>';
+  var mount = document.getElementById("navMount");
+  if (mount) mount.innerHTML = sidebar + mobileHeader;
+  var mh = document.querySelector(".mobile-header");
+  var al = document.querySelector(".app-layout");
+  if (mh && al && al.contains(mh)) al.parentNode.insertBefore(mh, al);
+  var btn = document.getElementById("mobileMenuBtn");
+  var sb  = document.getElementById("sidebar");
+  var ov  = document.getElementById("sidebarOverlay");
+  if (btn && sb && ov) {
+    btn.addEventListener("click", function(){ sb.classList.add("open"); ov.classList.add("active"); btn.setAttribute("aria-expanded","true"); document.body.style.overflow="hidden"; });
+    ov.addEventListener("click",  function(){ sb.classList.remove("open"); ov.classList.remove("active"); btn.setAttribute("aria-expanded","false"); document.body.style.overflow=""; });
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape" && sb.classList.contains("open")){ sb.classList.remove("open"); ov.classList.remove("active"); btn.setAttribute("aria-expanded","false"); document.body.style.overflow=""; } });
+  }
+}
+
+/* ── Demo data ── */
+var STATS = {
+  predictions_this_week: 47, referrals_flagged: 12, avg_processing_ms: 1840, active_clinicians: 8,
+  delta_predictions: "+14%", delta_referrals: "+3", delta_processing: "-120ms", delta_clinicians: "+1",
+  weekly_chart: [
+    {label:"Mon",predictions:9,referrals:2},{label:"Tue",predictions:12,referrals:4},
+    {label:"Wed",predictions:6,referrals:1},{label:"Thu",predictions:8,referrals:3},
+    {label:"Fri",predictions:7,referrals:1},{label:"Sat",predictions:3,referrals:1},{label:"Sun",predictions:2,referrals:0}
+  ],
+  result_distribution: { cancer_detected: 12, healthy: 35 }
+};
+var PREDICTIONS = [
+  { id:"PRED-1091",patient:"PAT-0001",clinician:"Dr. Sarah Okonkwo", result:"cancer_detected",probability:0.87,referral:true, location:"Left forearm",  time:"2026-09-14T14:32:00Z",status:"reviewed"},
+  { id:"PRED-1090",patient:"PAT-0002",clinician:"Dr. Marcus Reeves", result:"healthy",         probability:0.12,referral:false,location:"Upper back",   time:"2026-09-13T11:15:00Z",status:"reviewed"},
+  { id:"PRED-1089",patient:"PAT-0003",clinician:"Dr. Sarah Okonkwo", result:"cancer_detected",probability:0.93,referral:true, location:"Right shoulder",time:"2026-09-11T09:50:00Z",status:"pending"},
+  { id:"PRED-1088",patient:"PAT-0004",clinician:"Dr. Priya Sharma",  result:"healthy",         probability:0.07,referral:false,location:"Left calf",    time:"2026-09-10T15:20:00Z",status:"reviewed"},
+  { id:"PRED-1087",patient:"PAT-0005",clinician:"Dr. Marcus Reeves", result:"healthy",         probability:0.19,referral:false,location:"Neck",          time:"2026-09-09T10:05:00Z",status:"reviewed"},
+  { id:"PRED-1086",patient:"PAT-0006",clinician:"Dr. Sarah Okonkwo", result:"cancer_detected",probability:0.78,referral:true, location:"Right hand",    time:"2026-09-08T13:40:00Z",status:"pending"},
+  { id:"PRED-1085",patient:"PAT-0007",clinician:"Dr. Ivan Sokolov",  result:"healthy",         probability:0.04,referral:false,location:"Left temple",  time:"2026-09-07T08:30:00Z",status:"reviewed"},
+  { id:"PRED-1084",patient:"PAT-0008",clinician:"Dr. Priya Sharma",  result:"healthy",         probability:0.22,referral:false,location:"Upper chest",  time:"2026-09-06T12:10:00Z",status:"reviewed"},
+];
+
+/* ── Render ── */
+function renderStats(s) {
+  document.getElementById("statsGrid").innerHTML =
+    '<div class="stat-card"><div class="stat-card-header"><div><div class="stat-card-value">'+s.predictions_this_week+'</div><div class="stat-card-label">Predictions this week</div></div><div class="stat-card-icon icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div></div><div class="stat-card-delta delta-up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>'+s.delta_predictions+' vs. last week</div></div>'+
+    '<div class="stat-card"><div class="stat-card-header"><div><div class="stat-card-value">'+s.referrals_flagged+'</div><div class="stat-card-label">Referrals flagged</div></div><div class="stat-card-icon icon-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div></div><div class="stat-card-delta delta-down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 9 12 15 6 9"/></svg>'+s.delta_referrals+' this week</div></div>'+
+    '<div class="stat-card"><div class="stat-card-header"><div><div class="stat-card-value">'+(s.avg_processing_ms/1000).toFixed(2)+'s</div><div class="stat-card-label">Avg. processing time</div></div><div class="stat-card-icon icon-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div><div class="stat-card-delta delta-up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>'+s.delta_processing+' vs. last week</div></div>'+
+    '<div class="stat-card"><div class="stat-card-header"><div><div class="stat-card-value">'+s.active_clinicians+'</div><div class="stat-card-label">Active clinicians</div></div><div class="stat-card-icon icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div></div><div class="stat-card-delta delta-neutral">'+s.delta_clinicians+' this month</div></div>';
+}
+
+function renderWeeklyChart(data) {
+  var maxVal = Math.max.apply(null, data.map(function(d){return d.predictions;})) || 1;
+  document.getElementById("weeklyChart").innerHTML = data.map(function(d) {
+    return '<div class="chart-bar-wrap"><div class="chart-bar blue" style="height:'+Math.round((d.predictions/maxVal)*140)+'px" title="'+d.predictions+' predictions"></div><span class="chart-label">'+d.label+'</span></div>';
+  }).join("");
+}
+
+function renderDist(dist) {
+  var total = dist.cancer_detected + dist.healthy;
+  var pct   = total ? Math.round((dist.cancer_detected/total)*100) : 0;
+  var r=40, circ=2*Math.PI*r, dash=(pct/100)*circ;
+  document.getElementById("distChart").innerHTML =
+    '<div style="position:relative;width:110px;height:110px;flex-shrink:0"><svg viewBox="0 0 100 100" style="width:100%;height:100%;transform:rotate(-90deg)"><circle cx="50" cy="50" r="'+r+'" fill="none" stroke="var(--color-healthy-light)" stroke-width="12"/><circle cx="50" cy="50" r="'+r+'" fill="none" stroke="var(--color-concern)" stroke-width="12" stroke-dasharray="'+dash+' '+circ+'" stroke-dashoffset="0" stroke-linecap="round"/></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center"><span style="font-size:1.25rem;font-weight:700;font-family:var(--font-heading);line-height:1">'+pct+'%</span><span style="font-size:10px;color:var(--color-text-muted)">concern</span></div></div>'+
+    '<div class="dist-legend"><div class="dist-legend-item"><div class="dist-legend-swatch" style="background:var(--color-concern)"></div><span class="dist-legend-label">Cancer detected</span><span class="dist-legend-value">'+dist.cancer_detected+'</span></div><div class="dist-legend-item"><div class="dist-legend-swatch" style="background:var(--color-healthy)"></div><span class="dist-legend-label">Healthy</span><span class="dist-legend-value">'+dist.healthy+'</span></div><div class="dist-legend-item"><div class="dist-legend-swatch" style="background:var(--color-border)"></div><span class="dist-legend-label">Total</span><span class="dist-legend-value">'+total+'</span></div></div>';
+}
+
+function resultPill(result) {
+  if (result === "cancer_detected") return '<span class="result-pill badge-concern"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>Cancer detected</span>';
+  return '<span class="result-pill badge-healthy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Healthy</span>';
+}
+function statusBadge(status) {
+  if (status==="pending") return '<span class="badge badge-warning">Pending review</span>';
+  return '<span class="badge badge-neutral">Reviewed</span>';
+}
+
+function renderRecentPredictions(preds) {
+  var tbody = document.getElementById("recentTbody");
+  if (!preds.length) { tbody.innerHTML='<tr><td colspan="8"><div class="state-container"><p class="state-description">No predictions yet.</p></div></td></tr>'; return; }
+  tbody.innerHTML = preds.map(function(p) {
+    var prob = Math.round(p.probability*100);
+    var barClass = p.result==="cancer_detected" ? "concern" : "healthy";
+    return '<tr><td><span class="patient-id">'+p.id+'</span></td><td><span class="patient-id">'+p.patient+'</span></td><td style="color:var(--color-text-secondary)">'+p.clinician+'</td><td>'+resultPill(p.result)+'</td><td><div class="prob-mini"><div class="prob-mini-bar"><div class="prob-mini-fill" style="width:'+prob+'%;background:var(--color-'+barClass+')"></div></div><span class="prob-mini-val">'+prob+'%</span></div></td><td>'+(p.referral?'<span class="badge badge-concern"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>Yes</span>':'<span class="badge badge-neutral">No</span>')+'</td><td style="color:var(--color-text-muted);white-space:nowrap">'+formatDateTime(p.time)+'</td><td>'+statusBadge(p.status)+'</td></tr>';
+  }).join("");
+}
+
+/* ── Boot ── */
+initNav();
+setTimeout(function() {
+  renderStats(STATS);
+  renderWeeklyChart(STATS.weekly_chart);
+  renderDist(STATS.result_distribution);
+  renderRecentPredictions(PREDICTIONS);
+}, 500);
+</script>
+</body>
+</html>

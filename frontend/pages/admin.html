@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration — DermisAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .admin-tabs-wrap { background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden; }
+    .admin-tabs-header { padding:0 var(--space-6);border-bottom:1px solid var(--color-border); }
+    .admin-tab-body { padding:var(--space-6); }
+    .clinician-cell { display:flex;align-items:center;gap:var(--space-3); }
+    .clinician-avatar { width:28px;height:28px;border-radius:50%;background:var(--color-slate);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:var(--weight-bold);color:#fff;flex-shrink:0; }
+    .clinician-name { font-weight:var(--weight-medium); }
+    .clinician-email { font-size:var(--text-xs);color:var(--color-text-muted); }
+    .hosp-stat { display:flex;flex-direction:column;gap:2px; }
+    .hosp-stat-val { font-weight:var(--weight-semibold);font-size:var(--text-sm); }
+    .hosp-stat-mini { height:3px;background:var(--color-bg-alt);border-radius:var(--radius-full);overflow:hidden;width:60px; }
+    .hosp-stat-fill { height:100%;border-radius:var(--radius-full); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="navMount"></div>
+  <main class="main-content" id="mainContent">
+    <div class="page-header">
+      <div class="page-header-text">
+        <h1 class="page-title">Administration</h1>
+        <p class="page-subtitle">Manage users and facility information</p>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="admin-tabs-wrap">
+        <div class="admin-tabs-header">
+          <div class="tabs" role="tablist">
+            <button class="tab-button active" role="tab" id="usersTab" aria-controls="usersPanel" aria-selected="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Users <span class="badge badge-neutral" id="userCountBadge" style="margin-left:4px">—</span>
+            </button>
+            <button class="tab-button" role="tab" id="hospitalsTab" aria-controls="hospitalsPanel" aria-selected="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Hospitals <span class="badge badge-neutral" id="hospCountBadge" style="margin-left:4px">—</span>
+            </button>
+          </div>
+        </div>
+        <div class="admin-tab-body">
+          <!-- Users Panel -->
+          <div id="usersPanel" role="tabpanel">
+            <div class="table-toolbar">
+              <div class="table-search">
+                <div class="input-with-icon">
+                  <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                  <input type="search" class="form-control" id="userSearch" placeholder="Search by name or email..." aria-label="Search users" />
+                </div>
+              </div>
+              <div class="table-filters">
+                <select class="filter-select" id="roleFilter" aria-label="Filter by role">
+                  <option value="">All roles</option>
+                  <option value="admin">Administrator</option>
+                  <option value="dermatologist">Dermatologist</option>
+                  <option value="general_practitioner">General Practitioner</option>
+                  <option value="nurse">Nurse</option>
+                </select>
+                <select class="filter-select" id="userStatusFilter" aria-label="Filter by status">
+                  <option value="">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead><tr><th>Name</th><th>Role</th><th>Hospital</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead>
+                <tbody id="usersTbody">
+                  <tr class="skeleton-row"><td colspan="6"><div class="skeleton skeleton-text" style="width:100%"></div></td></tr>
+                  <tr class="skeleton-row"><td colspan="6"><div class="skeleton skeleton-text" style="width:90%"></div></td></tr>
+                </tbody>
+              </table>
+              <div id="usersPagMount"></div>
+            </div>
+          </div>
+          <!-- Hospitals Panel -->
+          <div id="hospitalsPanel" role="tabpanel" class="hidden">
+            <div class="table-toolbar">
+              <div class="table-search">
+                <div class="input-with-icon">
+                  <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                  <input type="search" class="form-control" id="hospSearch" placeholder="Search by name or city..." aria-label="Search hospitals" />
+                </div>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead><tr><th>Hospital name</th><th>Location</th><th>Users</th><th>Patients</th><th>Registered</th><th>Actions</th></tr></thead>
+                <tbody id="hospTbody">
+                  <tr class="skeleton-row"><td colspan="6"><div class="skeleton skeleton-text" style="width:100%"></div></td></tr>
+                  <tr class="skeleton-row"><td colspan="6"><div class="skeleton skeleton-text" style="width:85%"></div></td></tr>
+                </tbody>
+              </table>
+              <div id="hospPagMount"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ── Shared nav ── */
+var DEMO_CURRENT_USER=(function(){try{return JSON.parse(sessionStorage.getItem("dermis_user"))||{name:"Dr. Sarah Okonkwo",role:"dermatologist"};}catch(e){return{name:"Dr. Sarah Okonkwo",role:"dermatologist"};}})();
+var NAV_LINKS=[{href:"dashboard.html",label:"Dashboard",icon:"dashboard"},{href:"upload.html",label:"Upload & Predict",icon:"upload"},{href:"patients.html",label:"Patients",icon:"patients"},{href:"admin.html",label:"Administration",icon:"admin"},{href:"audit.html",label:"Audit Log",icon:"audit"}];
+var NAV_ICONS={logo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>',dashboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',patients:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',admin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>',audit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>'};
+var ROLE_LABELS={admin:"Administrator",dermatologist:"Dermatologist",general_practitioner:"General Practitioner",nurse:"Nurse"};
+function initials(name){return name.split(" ").filter(Boolean).map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();}
+function currentPage(){return window.location.pathname.split("/").pop()||"index.html";}
+function formatDate(iso){if(!iso)return"—";return new Date(iso).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});}
+function formatDateTime(iso){if(!iso)return"—";return new Date(iso).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});}
+function debounce(fn,delay){var t;return function(){clearTimeout(t);t=setTimeout(fn,delay||300);};}
+function initNav(){
+  var user=DEMO_CURRENT_USER,page=currentPage();
+  var ni=NAV_LINKS.map(function(l){var a=page===l.href?"active":"";return'<a href="'+l.href+'" class="nav-item '+a+'" aria-current="'+(a?"page":"false")+'">'+NAV_ICONS[l.icon]+'<span>'+l.label+'</span></a>';}).join("");
+  var sb='<aside class="sidebar" id="sidebar" role="navigation"><div class="sidebar-header"><div class="sidebar-logo">'+NAV_ICONS.logo+'</div><div class="sidebar-brand"><span class="sidebar-brand-name">DermisAI</span><span class="sidebar-brand-sub">Clinical Detection</span></div></div><nav class="sidebar-nav"><div class="nav-section"><span class="nav-section-label">Navigation</span></div>'+ni+'</nav><div class="sidebar-footer"><div class="sidebar-user"><div class="user-avatar">'+initials(user.name)+'</div><div class="user-info"><div class="user-name">'+user.name+'</div><div class="user-role">'+(ROLE_LABELS[user.role]||user.role)+'</div></div></div><a href="index.html" class="btn-logout">'+NAV_ICONS.logout+'<span>Sign out</span></a></div></aside><div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>';
+  var lk=NAV_LINKS.find(function(l){return l.href===page;});
+  var mh='<header class="mobile-header"><div class="mobile-header-brand">'+NAV_ICONS.logo+'<span>'+(lk?lk.label:"DermisAI")+'</span></div><button class="mobile-menu-btn" id="mobileMenuBtn" aria-expanded="false">'+NAV_ICONS.menu+'</button></header>';
+  var mount=document.getElementById("navMount");if(mount)mount.innerHTML=sb+mh;
+  var mhEl=document.querySelector(".mobile-header"),al=document.querySelector(".app-layout");
+  if(mhEl&&al&&al.contains(mhEl))al.parentNode.insertBefore(mhEl,al);
+  var btn=document.getElementById("mobileMenuBtn"),sbn=document.getElementById("sidebar"),ov=document.getElementById("sidebarOverlay");
+  if(btn&&sbn&&ov){btn.addEventListener("click",function(){sbn.classList.add("open");ov.classList.add("active");btn.setAttribute("aria-expanded","true");document.body.style.overflow="hidden";});ov.addEventListener("click",function(){sbn.classList.remove("open");ov.classList.remove("active");btn.setAttribute("aria-expanded","false");document.body.style.overflow="";});}
+}
+
+/* ── Demo data ── */
+var ALL_USERS=[
+  {name:"Dr. Sarah Okonkwo",  email:"s.okonkwo@cityhospital.org", role:"dermatologist",       hospital:"City General Hospital", status:"active",  last_login:"2026-09-15T08:42:00Z"},
+  {name:"Dr. Marcus Reeves",  email:"m.reeves@cityhospital.org",  role:"general_practitioner", hospital:"City General Hospital", status:"active",  last_login:"2026-09-14T16:10:00Z"},
+  {name:"Nurse Chen Lijuan",  email:"c.lijuan@cityhospital.org",  role:"nurse",               hospital:"City General Hospital", status:"active",  last_login:"2026-09-15T07:55:00Z"},
+  {name:"Admin J. Hartwell",  email:"j.hartwell@cityhospital.org",role:"admin",               hospital:"City General Hospital", status:"active",  last_login:"2026-09-13T09:00:00Z"},
+  {name:"Dr. Priya Sharma",   email:"p.sharma@northmed.org",      role:"dermatologist",       hospital:"North Medical Centre",  status:"active",  last_login:"2026-09-15T10:20:00Z"},
+  {name:"Dr. Tomás Ferreira", email:"t.ferreira@northmed.org",    role:"general_practitioner", hospital:"North Medical Centre",  status:"inactive",last_login:"2026-08-28T14:00:00Z"},
+  {name:"Nurse Amara Diallo", email:"a.diallo@northmed.org",      role:"nurse",               hospital:"North Medical Centre",  status:"active",  last_login:"2026-09-14T11:30:00Z"},
+  {name:"Dr. Ivan Sokolov",   email:"i.sokolov@eastclinic.org",   role:"dermatologist",       hospital:"East District Clinic",  status:"active",  last_login:"2026-09-12T09:15:00Z"},
+  {name:"Admin Rosa Navarro", email:"r.navarro@eastclinic.org",   role:"admin",               hospital:"East District Clinic",  status:"inactive",last_login:"2026-07-15T08:00:00Z"},
+  {name:"Nurse Kim Jae-won",  email:"k.jaewon@eastclinic.org",    role:"nurse",               hospital:"East District Clinic",  status:"active",  last_login:"2026-09-15T06:45:00Z"},
+];
+var ALL_HOSPITALS=[
+  {name:"City General Hospital", city:"London",    country:"United Kingdom",users:4,patients:312,registered:"2025-01-15"},
+  {name:"North Medical Centre",  city:"Manchester",country:"United Kingdom",users:3,patients:189,registered:"2025-03-08"},
+  {name:"East District Clinic",  city:"Birmingham",country:"United Kingdom",users:3,patients:97, registered:"2025-06-22"},
+  {name:"St. Annes Dermatology", city:"Bristol",   country:"United Kingdom",users:2,patients:54, registered:"2025-08-10"},
+  {name:"Royal Skin Institute",  city:"Edinburgh", country:"United Kingdom",users:5,patients:421,registered:"2024-11-01"},
+];
+
+/* ── Tab switching ── */
+var hospLoaded=false;
+document.getElementById("usersTab").addEventListener("click",function(){switchTab("users");});
+document.getElementById("hospitalsTab").addEventListener("click",function(){switchTab("hospitals");if(!hospLoaded){renderHospitals();hospLoaded=true;}});
+function switchTab(tab){
+  if(tab==="users"){
+    document.getElementById("usersTab").classList.add("active"); document.getElementById("usersTab").setAttribute("aria-selected","true");
+    document.getElementById("hospitalsTab").classList.remove("active"); document.getElementById("hospitalsTab").setAttribute("aria-selected","false");
+    document.getElementById("usersPanel").classList.remove("hidden"); document.getElementById("hospitalsPanel").classList.add("hidden");
+  } else {
+    document.getElementById("hospitalsTab").classList.add("active"); document.getElementById("hospitalsTab").setAttribute("aria-selected","true");
+    document.getElementById("usersTab").classList.remove("active"); document.getElementById("usersTab").setAttribute("aria-selected","false");
+    document.getElementById("hospitalsPanel").classList.remove("hidden"); document.getElementById("usersPanel").classList.add("hidden");
+  }
+}
+
+/* ── Avatar colors ── */
+var AVATAR_COLORS={admin:"#0F1F3D",dermatologist:"#1D6FA4",general_practitioner:"#B45309",nurse:"#1A7A4A"};
+function avatarColor(role){return AVATAR_COLORS[role]||"#2A4A7F";}
+
+/* ── Pagination helper ── */
+function renderPagination(container,total,page,perPage,onPage){
+  var totalPages=Math.ceil(total/perPage),start=(page-1)*perPage+1,end=Math.min(page*perPage,total),pages="";
+  for(var i=1;i<=totalPages;i++){
+    if(i===1||i===totalPages||(i>=page-1&&i<=page+1))pages+='<button class="page-btn'+(i===page?" active":"")+'" data-page="'+i+'">'+i+'</button>';
+    else if(i===page-2||i===page+2)pages+='<span style="color:var(--color-text-muted);padding:0 4px">…</span>';
+  }
+  container.innerHTML='<div class="pagination"><div class="pagination-info">Showing '+start+'–'+end+' of '+total+'</div><div class="pagination-controls"><button class="page-btn" data-page="'+(page-1)+'" '+(page<=1?"disabled":"")+' aria-label="Prev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>'+pages+'<button class="page-btn" data-page="'+(page+1)+'" '+(page>=totalPages?"disabled":"")+' aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>';
+  container.querySelectorAll(".page-btn:not([disabled])").forEach(function(btn){btn.addEventListener("click",function(){var p=parseInt(btn.dataset.page,10);if(p&&p!==page)onPage(p);});});
+}
+
+/* ── Users ── */
+var userFilters={search:"",role:"",status:"",page:1,perPage:8};
+function renderUsers(){
+  var f=userFilters;
+  var filtered=ALL_USERS.filter(function(u){
+    return(!f.search||(u.name+u.email).toLowerCase().includes(f.search.toLowerCase()))
+      &&(!f.role||u.role===f.role)&&(!f.status||u.status===f.status);
+  });
+  document.getElementById("userCountBadge").textContent=filtered.length;
+  var items=filtered.slice((f.page-1)*f.perPage,f.page*f.perPage);
+  var tbody=document.getElementById("usersTbody");
+  if(!items.length){tbody.innerHTML='<tr><td colspan="6"><div class="state-container"><p class="state-title">No users found.</p><p class="state-description">Adjust the search or filters.</p></div></td></tr>';document.getElementById("usersPagMount").innerHTML="";return;}
+  tbody.innerHTML=items.map(function(u){
+    var statusBadge=u.status==="active"?'<span class="badge badge-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Active</span>':'<span class="badge badge-inactive">Inactive</span>';
+    return'<tr><td><div class="clinician-cell"><div class="clinician-avatar" style="background:'+avatarColor(u.role)+'">'+initials(u.name)+'</div><div><div class="clinician-name">'+u.name+'</div><div class="clinician-email">'+u.email+'</div></div></div></td><td><span class="role-badge role-'+u.role+'">'+(ROLE_LABELS[u.role]||u.role)+'</span></td><td style="color:var(--color-text-secondary);font-size:var(--text-sm)">'+u.hospital+'</td><td>'+statusBadge+'</td><td style="color:var(--color-text-muted);font-size:var(--text-sm);white-space:nowrap">'+formatDateTime(u.last_login)+'</td><td><div style="display:flex;gap:var(--space-2)"><button class="btn btn-secondary btn-sm" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button></div></td></tr>';
+  }).join("");
+  renderPagination(document.getElementById("usersPagMount"),filtered.length,f.page,f.perPage,function(p){userFilters.page=p;renderUsers();});
+}
+
+/* ── Hospitals ── */
+var hospFilters={search:"",page:1,perPage:8};
+function renderHospitals(){
+  var f=hospFilters;
+  var filtered=ALL_HOSPITALS.filter(function(h){return!f.search||(h.name+h.city).toLowerCase().includes(f.search.toLowerCase());});
+  document.getElementById("hospCountBadge").textContent=filtered.length;
+  var items=filtered.slice((f.page-1)*f.perPage,f.page*f.perPage);
+  var tbody=document.getElementById("hospTbody");
+  if(!items.length){tbody.innerHTML='<tr><td colspan="6"><div class="state-container"><p class="state-title">No hospitals found.</p></div></td></tr>';document.getElementById("hospPagMount").innerHTML="";return;}
+  tbody.innerHTML=items.map(function(h){
+    return'<tr><td><div style="font-weight:var(--weight-semibold)">'+h.name+'</div></td><td style="color:var(--color-text-secondary)"><div>'+h.city+'</div><div style="font-size:var(--text-xs);color:var(--color-text-muted)">'+h.country+'</div></td><td><div class="hosp-stat"><span class="hosp-stat-val">'+h.users+'</span><div class="hosp-stat-mini"><div class="hosp-stat-fill" style="width:'+Math.min((h.users/10)*100,100)+'%;background:var(--color-slate)"></div></div></div></td><td><div class="hosp-stat"><span class="hosp-stat-val">'+h.patients+'</span><div class="hosp-stat-mini"><div class="hosp-stat-fill" style="width:'+Math.min((h.patients/500)*100,100)+'%;background:var(--color-info)"></div></div></div></td><td style="color:var(--color-text-muted);font-size:var(--text-sm)">'+formatDate(h.registered)+'</td><td><button class="btn btn-secondary btn-sm" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button></td></tr>';
+  }).join("");
+  renderPagination(document.getElementById("hospPagMount"),filtered.length,f.page,f.perPage,function(p){hospFilters.page=p;renderHospitals();});
+}
+
+/* ── Boot ── */
+initNav();
+var userSearch=document.getElementById("userSearch");
+var roleFilter=document.getElementById("roleFilter");
+var userStatusFilter=document.getElementById("userStatusFilter");
+var hospSearch=document.getElementById("hospSearch");
+var debounceUser=debounce(function(){userFilters.search=userSearch.value.trim();userFilters.page=1;renderUsers();});
+var debounceHosp=debounce(function(){hospFilters.search=hospSearch.value.trim();hospFilters.page=1;renderHospitals();});
+userSearch.addEventListener("input",debounceUser);
+roleFilter.addEventListener("change",function(){userFilters.role=roleFilter.value;userFilters.page=1;renderUsers();});
+userStatusFilter.addEventListener("change",function(){userFilters.status=userStatusFilter.value;userFilters.page=1;renderUsers();});
+hospSearch.addEventListener("input",debounceHosp);
+setTimeout(renderUsers, 400);
+</script>
+</body>
+</html>

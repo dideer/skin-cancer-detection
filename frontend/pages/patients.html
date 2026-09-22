@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Patients — DermisAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .pred-count { display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--color-bg-alt);border:1px solid var(--color-border);font-size:var(--text-xs);font-weight:var(--weight-semibold);color:var(--color-text-secondary); }
+    .pred-count.has-data { background:var(--color-info-light);border-color:var(--color-info-border);color:var(--color-info); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="navMount"></div>
+  <main class="main-content" id="mainContent">
+    <div class="page-header">
+      <div class="page-header-text">
+        <h1 class="page-title">Patients</h1>
+        <p class="page-subtitle">Anonymous patient records across all facilities</p>
+      </div>
+      <a href="upload.html" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Register patient
+      </a>
+    </div>
+    <div class="page-body">
+      <div class="table-toolbar">
+        <div class="table-search">
+          <div class="input-with-icon">
+            <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <input type="search" class="form-control" id="searchInput" placeholder="Search by patient ID..." aria-label="Search patients" />
+          </div>
+        </div>
+        <div class="table-filters">
+          <select class="filter-select" id="skinTypeFilter" aria-label="Filter by skin type">
+            <option value="">All skin types</option>
+            <option value="I">Type I</option><option value="II">Type II</option><option value="III">Type III</option>
+            <option value="IV">Type IV</option><option value="V">Type V</option><option value="VI">Type VI</option>
+          </select>
+          <select class="filter-select" id="statusFilter" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="active">Active</option><option value="flagged">Flagged</option>
+          </select>
+        </div>
+        <div style="margin-left:auto"><span id="totalCount" class="text-sm text-muted"></span></div>
+      </div>
+      <div class="table-container" id="tableContainer">
+        <table>
+          <thead>
+            <tr><th>Patient ID</th><th>Age group</th><th>Fitzpatrick type</th><th>Predictions</th><th>Last seen</th><th>Status</th><th>Action</th></tr>
+          </thead>
+          <tbody id="patientsTbody">
+            <tr class="skeleton-row"><td colspan="7"><div class="skeleton skeleton-text" style="width:100%"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="7"><div class="skeleton skeleton-text" style="width:85%"></div></td></tr>
+            <tr class="skeleton-row"><td colspan="7"><div class="skeleton skeleton-text" style="width:92%"></div></td></tr>
+          </tbody>
+        </table>
+        <div id="paginationMount"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ── Shared nav ── */
+var DEMO_CURRENT_USER = (function() {
+  try { return JSON.parse(sessionStorage.getItem("dermis_user")) || { name: "Dr. Sarah Okonkwo", role: "dermatologist" }; } catch(e) { return { name: "Dr. Sarah Okonkwo", role: "dermatologist" }; }
+})();
+var NAV_LINKS = [
+  {href:"dashboard.html",label:"Dashboard",icon:"dashboard"},
+  {href:"upload.html",label:"Upload & Predict",icon:"upload"},
+  {href:"patients.html",label:"Patients",icon:"patients"},
+  {href:"admin.html",label:"Administration",icon:"admin"},
+  {href:"audit.html",label:"Audit Log",icon:"audit"},
+];
+var NAV_ICONS = {
+  logo:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>',
+  dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  upload:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+  patients:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  admin:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>',
+  audit:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>',
+  logout:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+  menu:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
+};
+var ROLE_LABELS = {admin:"Administrator",dermatologist:"Dermatologist",general_practitioner:"General Practitioner",nurse:"Nurse"};
+function initials(name){return name.split(" ").filter(Boolean).map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();}
+function currentPage(){return window.location.pathname.split("/").pop()||"index.html";}
+function formatDate(iso){if(!iso)return "—";return new Date(iso).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});}
+function debounce(fn,delay){var t;return function(){clearTimeout(t);t=setTimeout(fn,delay||300);};}
+
+function initNav() {
+  var user=DEMO_CURRENT_USER, page=currentPage();
+  var navItems=NAV_LINKS.map(function(l){var a=page===l.href?"active":"";return '<a href="'+l.href+'" class="nav-item '+a+'" aria-current="'+(a?"page":"false")+'">'+NAV_ICONS[l.icon]+'<span>'+l.label+'</span></a>';}).join("");
+  var sidebar='<aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation"><div class="sidebar-header"><div class="sidebar-logo">'+NAV_ICONS.logo+'</div><div class="sidebar-brand"><span class="sidebar-brand-name">DermisAI</span><span class="sidebar-brand-sub">Clinical Detection</span></div></div><nav class="sidebar-nav"><div class="nav-section"><span class="nav-section-label">Navigation</span></div>'+navItems+'</nav><div class="sidebar-footer"><div class="sidebar-user"><div class="user-avatar">'+initials(user.name)+'</div><div class="user-info"><div class="user-name">'+user.name+'</div><div class="user-role">'+(ROLE_LABELS[user.role]||user.role)+'</div></div></div><a href="index.html" class="btn-logout">'+NAV_ICONS.logout+'<span>Sign out</span></a></div></aside><div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>';
+  var link=NAV_LINKS.find(function(l){return l.href===page;});
+  var mh='<header class="mobile-header" role="banner"><div class="mobile-header-brand">'+NAV_ICONS.logo+'<span>'+(link?link.label:"DermisAI")+'</span></div><button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open navigation menu" aria-expanded="false">'+NAV_ICONS.menu+'</button></header>';
+  var mount=document.getElementById("navMount");
+  if(mount) mount.innerHTML=sidebar+mh;
+  var mhEl=document.querySelector(".mobile-header"),al=document.querySelector(".app-layout");
+  if(mhEl&&al&&al.contains(mhEl)) al.parentNode.insertBefore(mhEl,al);
+  var btn=document.getElementById("mobileMenuBtn"),sb=document.getElementById("sidebar"),ov=document.getElementById("sidebarOverlay");
+  if(btn&&sb&&ov){
+    btn.addEventListener("click",function(){sb.classList.add("open");ov.classList.add("active");btn.setAttribute("aria-expanded","true");document.body.style.overflow="hidden";});
+    ov.addEventListener("click",function(){sb.classList.remove("open");ov.classList.remove("active");btn.setAttribute("aria-expanded","false");document.body.style.overflow="";});
+    document.addEventListener("keydown",function(e){if(e.key==="Escape"&&sb.classList.contains("open")){sb.classList.remove("open");ov.classList.remove("active");btn.setAttribute("aria-expanded","false");document.body.style.overflow="";}});
+  }
+}
+
+/* ── Demo data ── */
+var ALL_PATIENTS = [
+  {id:"PAT-0001",age_group:"55–64",skin_type:"III",predictions:3,last_seen:"2026-09-14",status:"active"},
+  {id:"PAT-0002",age_group:"35–44",skin_type:"II", predictions:1,last_seen:"2026-09-13",status:"active"},
+  {id:"PAT-0003",age_group:"65–74",skin_type:"IV", predictions:5,last_seen:"2026-09-11",status:"flagged"},
+  {id:"PAT-0004",age_group:"25–34",skin_type:"I",  predictions:1,last_seen:"2026-09-10",status:"active"},
+  {id:"PAT-0005",age_group:"45–54",skin_type:"V",  predictions:2,last_seen:"2026-09-09",status:"active"},
+  {id:"PAT-0006",age_group:"75+",  skin_type:"II", predictions:4,last_seen:"2026-09-08",status:"flagged"},
+  {id:"PAT-0007",age_group:"18–24",skin_type:"I",  predictions:1,last_seen:"2026-09-07",status:"active"},
+  {id:"PAT-0008",age_group:"55–64",skin_type:"VI", predictions:2,last_seen:"2026-09-06",status:"active"},
+  {id:"PAT-0009",age_group:"45–54",skin_type:"III",predictions:3,last_seen:"2026-09-05",status:"active"},
+  {id:"PAT-0010",age_group:"65–74",skin_type:"II", predictions:6,last_seen:"2026-09-04",status:"flagged"},
+  {id:"PAT-0011",age_group:"35–44",skin_type:"IV", predictions:1,last_seen:"2026-09-03",status:"active"},
+  {id:"PAT-0012",age_group:"25–34",skin_type:"V",  predictions:2,last_seen:"2026-09-02",status:"active"},
+];
+
+var currentFilters = {search:"",skin_type:"",status:"",page:1,perPage:8};
+
+function fitzBadge(type) {
+  return '<span class="fitz-badge"><span class="fitz-swatch fitz-'+type+'"></span>Type '+type+'</span>';
+}
+function statusBadge(status) {
+  if(status==="flagged") return '<span class="badge badge-concern"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>Flagged</span>';
+  return '<span class="badge badge-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Active</span>';
+}
+
+function renderPagination(container, total, page, perPage, onPage) {
+  var totalPages = Math.ceil(total/perPage);
+  var start=(page-1)*perPage+1, end=Math.min(page*perPage,total);
+  var pages="";
+  for(var i=1;i<=totalPages;i++){
+    if(i===1||i===totalPages||(i>=page-1&&i<=page+1)) pages+='<button class="page-btn'+(i===page?" active":"")+'" data-page="'+i+'">'+i+'</button>';
+    else if(i===page-2||i===page+2) pages+='<span style="color:var(--color-text-muted);padding:0 4px">…</span>';
+  }
+  container.innerHTML='<div class="pagination"><div class="pagination-info">Showing '+start+'–'+end+' of '+total+' records</div><div class="pagination-controls"><button class="page-btn" data-page="'+(page-1)+'" '+(page<=1?"disabled":"")+' aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>'+pages+'<button class="page-btn" data-page="'+(page+1)+'" '+(page>=totalPages?"disabled":"")+' aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>';
+  container.querySelectorAll(".page-btn:not([disabled])").forEach(function(btn){
+    btn.addEventListener("click",function(){var p=parseInt(btn.dataset.page,10);if(p&&p!==page) onPage(p);});
+  });
+}
+
+function renderPatients() {
+  var f=currentFilters;
+  var filtered=ALL_PATIENTS.filter(function(p){
+    return (!f.search||p.id.toLowerCase().includes(f.search.toLowerCase()))
+      &&(!f.skin_type||p.skin_type===f.skin_type)
+      &&(!f.status||p.status===f.status);
+  });
+  var total=filtered.length;
+  document.getElementById("totalCount").textContent=total+" record"+(total!==1?"s":"");
+  var start=(f.page-1)*f.perPage, items=filtered.slice(start,start+f.perPage);
+  var tbody=document.getElementById("patientsTbody");
+  if(!items.length){tbody.innerHTML='<tr><td colspan="7"><div class="state-container"><div class="state-icon empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><p class="state-title">No patients found.</p><p class="state-description">Try adjusting your search or filter criteria.</p></div></td></tr>';document.getElementById("paginationMount").innerHTML="";return;}
+  tbody.innerHTML=items.map(function(p){
+    return '<tr><td><span class="patient-id">'+p.id+'</span></td><td style="color:var(--color-text-secondary)">'+p.age_group+'</td><td>'+fitzBadge(p.skin_type)+'</td><td><span class="pred-count'+(p.predictions>0?" has-data":"")+'">'+p.predictions+'</span></td><td style="color:var(--color-text-muted)">'+formatDate(p.last_seen)+'</td><td>'+statusBadge(p.status)+'</td><td><a href="upload.html" class="btn btn-secondary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Predict</a></td></tr>';
+  }).join("");
+  renderPagination(document.getElementById("paginationMount"),total,f.page,f.perPage,function(p){currentFilters.page=p;renderPatients();});
+}
+
+/* ── Boot ── */
+initNav();
+var searchInput=document.getElementById("searchInput");
+var skinTypeFilter=document.getElementById("skinTypeFilter");
+var statusFilter=document.getElementById("statusFilter");
+
+var debouncedSearch=debounce(function(){currentFilters.search=searchInput.value.trim();currentFilters.page=1;renderPatients();});
+searchInput.addEventListener("input",debouncedSearch);
+skinTypeFilter.addEventListener("change",function(){currentFilters.skin_type=skinTypeFilter.value;currentFilters.page=1;renderPatients();});
+statusFilter.addEventListener("change",function(){currentFilters.status=statusFilter.value;currentFilters.page=1;renderPatients();});
+
+setTimeout(renderPatients, 400);
+</script>
+</body>
+</html>

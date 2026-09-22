@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Account — DermisAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .login-btn-text { transition: opacity var(--transition-fast); }
+    .login-btn-spinner { display: none; }
+    .btn-loading .login-btn-text { display: none; }
+    .btn-loading .login-btn-spinner { display: flex; align-items: center; gap: var(--space-2); }
+    .register-error   { display: none; margin-bottom: var(--space-4); }
+    .register-success { display: none; margin-bottom: var(--space-4); }
+    .register-error.visible   { display: flex; }
+    .register-success.visible { display: flex; }
+    .login-visual-label { font-size: var(--text-xs); color: rgba(255,255,255,0.40); letter-spacing: 0.06em; margin-bottom: var(--space-6); }
+    .login-visual-icon  { width: 72px; height: 72px; border-radius: var(--radius-xl); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-6); }
+    .login-visual-icon svg { width: 36px; height: 36px; color: rgba(255,255,255,0.7); }
+    .login-visual-body { font-size: var(--text-sm); color: rgba(255,255,255,0.45); line-height: 1.7; max-width: 340px; margin: 0 auto var(--space-8); }
+  </style>
+</head>
+<body>
+<main class="login-layout">
+  <!-- ── Left: registration form ────────────────────────────────────────── -->
+  <section class="login-panel" aria-labelledby="registerHeading">
+
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+      </div>
+      <div>
+        <div class="login-logo-name">DermisAI</div>
+        <div class="login-logo-sub">Clinical Detection System</div>
+      </div>
+    </div>
+
+    <h1 class="login-heading" id="registerHeading">Create your account</h1>
+    <p class="login-subheading">Register as a patient or dermatologist to get started.</p>
+
+    <!-- Error alert -->
+    <div class="alert alert-error register-error" role="alert" id="registerError">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="registerErrorMsg">Something went wrong.</span>
+    </div>
+
+    <!-- Success alert -->
+    <div class="alert alert-success register-success" role="status" id="registerSuccess">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <span>Account created! Redirecting to login...</span>
+    </div>
+
+    <form id="registerForm" novalidate>
+
+      <!-- Full name -->
+      <div class="form-group">
+        <label class="form-label" for="fullNameInput">Full name</label>
+        <input type="text" class="form-control" id="fullNameInput" name="full_name"
+               placeholder="Dr. Jane Smith" autocomplete="name" required />
+      </div>
+
+      <!-- Email -->
+      <div class="form-group">
+        <label class="form-label" for="emailInput">Email address</label>
+        <input type="email" class="form-control" id="emailInput" name="email"
+               placeholder="you@hospital.org" autocomplete="email" required />
+      </div>
+
+      <!-- Username -->
+      <div class="form-group">
+        <label class="form-label" for="usernameInput">Username</label>
+        <input type="text" class="form-control" id="usernameInput" name="username"
+               placeholder="janesmith" autocomplete="username" required />
+      </div>
+
+      <!-- Phone (optional) -->
+      <div class="form-group">
+        <label class="form-label" for="phoneInput">
+          Phone <span style="font-weight:var(--weight-regular);color:var(--color-text-muted)">(optional)</span>
+        </label>
+        <input type="tel" class="form-control" id="phoneInput" name="phone"
+               placeholder="+44 7700 000000" autocomplete="tel" />
+      </div>
+
+      <!-- Role -->
+      <div class="form-group">
+        <label class="form-label" for="roleSelect">Role</label>
+        <select class="form-control" id="roleSelect" name="role" required>
+          <option value="">Select role</option>
+          <option value="patient">Patient</option>
+          <option value="dermatologist">Dermatologist</option>
+        </select>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label class="form-label" for="passwordInput">Password</label>
+        <input type="password" class="form-control" id="passwordInput" name="password"
+               placeholder="Min. 6 characters" autocomplete="new-password" required minlength="6" />
+      </div>
+
+      <!-- Confirm password -->
+      <div class="form-group">
+        <label class="form-label" for="confirmPasswordInput">Confirm password</label>
+        <input type="password" class="form-control" id="confirmPasswordInput"
+               placeholder="Repeat password" autocomplete="new-password" required minlength="6" />
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg btn-full" id="registerBtn">
+        <span class="login-btn-text">Create account</span>
+        <span class="login-btn-spinner"><span class="spinner spinner-sm"></span>Creating account...</span>
+      </button>
+
+    </form>
+
+    <p style="margin-top:var(--space-5);text-align:center;font-size:var(--text-sm);color:var(--color-text-muted)">
+      Already have an account? <a href="index.html">Sign in</a>
+    </p>
+
+    <div class="login-footer">
+      <strong>For authorised personnel only</strong>
+      By registering you confirm you are a legitimate user.
+      All activity is recorded and subject to audit.
+    </div>
+
+  </section>
+
+  <!-- ── Right: decorative visual ────────────────────────────────────────── -->
+  <div class="login-visual" aria-hidden="true">
+    <div class="login-visual-pattern"></div>
+    <div class="login-visual-content">
+      <p class="login-visual-label">AI-ASSISTED DERMATOLOGY</p>
+      <div class="login-visual-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 10 10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+      </div>
+      <h2 class="login-visual-title">Clinical-grade lesion<br>analysis at the point of care</h2>
+      <p class="login-visual-body">Upload a dermoscopic image, receive a probability score and referral recommendation in under two seconds. Every result is logged, auditable, and designed to support — not replace — clinical judgement.</p>
+      <div class="login-visual-stats">
+        <div class="login-stat"><div class="login-stat-value">94.2%</div><div class="login-stat-label">Model sensitivity</div></div>
+        <div class="login-stat"><div class="login-stat-value">&lt; 2s</div><div class="login-stat-label">Avg. inference time</div></div>
+        <div class="login-stat"><div class="login-stat-value">5</div><div class="login-stat-label">Participating hospitals</div></div>
+        <div class="login-stat"><div class="login-stat-value">1,073</div><div class="login-stat-label">Predictions to date</div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  var API_BASE = "/api";
+
+  var form                = document.getElementById("registerForm");
+  var registerBtn         = document.getElementById("registerBtn");
+  var registerError       = document.getElementById("registerError");
+  var registerErrorMsg    = document.getElementById("registerErrorMsg");
+  var registerSuccess     = document.getElementById("registerSuccess");
+  var fullNameInput       = document.getElementById("fullNameInput");
+  var emailInput          = document.getElementById("emailInput");
+  var usernameInput       = document.getElementById("usernameInput");
+  var phoneInput          = document.getElementById("phoneInput");
+  var roleSelect          = document.getElementById("roleSelect");
+  var passwordInput       = document.getElementById("passwordInput");
+  var confirmPasswordInput = document.getElementById("confirmPasswordInput");
+
+  function setLoading(on) {
+    registerBtn.classList.toggle("btn-loading", on);
+    registerBtn.disabled = on;
+  }
+
+  function showError(msg) {
+    registerErrorMsg.textContent = msg;
+    registerError.classList.add("visible");
+    registerSuccess.classList.remove("visible");
+  }
+
+  function hideError() {
+    registerError.classList.remove("visible");
+  }
+
+  function validate() {
+    var fullName = fullNameInput.value.trim();
+    var email    = emailInput.value.trim();
+    var username = usernameInput.value.trim();
+    var role     = roleSelect.value;
+    var password = passwordInput.value;
+    var confirm  = confirmPasswordInput.value;
+
+    if (!fullName)  { showError("Full name is required."); return false; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showError("Please enter a valid email address."); return false;
+    }
+    if (!username)  { showError("Username is required."); return false; }
+    if (!role)      { showError("Please select a role."); return false; }
+    if (password.length < 6) {
+      showError("Password must be at least 6 characters."); return false;
+    }
+    if (password !== confirm) {
+      showError("Passwords do not match."); return false;
+    }
+    return true;
+  }
+
+  form.addEventListener("submit", function(e) {
+    e.preventDefault();
+    hideError();
+    if (!validate()) return;
+    setLoading(true);
+
+    var payload = {
+      full_name: fullNameInput.value.trim(),
+      email:     emailInput.value.trim(),
+      username:  usernameInput.value.trim(),
+      role:      roleSelect.value,
+      password:  passwordInput.value,
+    };
+    var phone = phoneInput.value.trim();
+    if (phone) { payload.phone = phone; }
+
+    fetch(API_BASE + "/auth/register", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return { status: response.status, data: data };
+      });
+    })
+    .then(function(result) {
+      if (result.status === 201 && result.data.success) {
+        registerSuccess.classList.add("visible");
+        setTimeout(function() {
+          window.location.href = "index.html";
+        }, 1500);
+      } else {
+        var msg = (result.data && result.data.message)
+          ? result.data.message
+          : "Registration failed. Please try again.";
+        showError(msg);
+        setLoading(false);
+      }
+    })
+    .catch(function() {
+      showError("Cannot reach the server. Is the backend running?");
+      setLoading(false);
+    });
+  });
+</script>
+</body>
+</html>
